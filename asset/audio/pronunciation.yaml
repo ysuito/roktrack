@@ -1,0 +1,126 @@
+person_detecting: 
+  ja: 人体を検知しました。一時停止中です。
+  en: Human body detected. Pausing.
+start_mowing:
+  ja: 起動準備が完了しました。草刈りを開始します。
+  en: Ready to start up. Mowing is started.
+bumped:
+  ja: 回避。
+  en: Avoiding.
+high_temp:
+  ja: 内部が高温状態です。一時停止します。
+  en: High temperature inside. Pause.
+new_cone_found:
+  ja: 新たな目標を補足しました。前進します。
+  en: New goals supplemented. Moving forward.
+close_to_cone:
+  ja: 目標に到達しました。次の目標を探索します。
+  en: Target reached. Explore the next target.
+upscale:
+  ja: 目標を見失いました。アップスケールします。
+  en: Lost the target. Upscale.
+downscale:
+  ja: ダウンスケールします。
+  en: Downscale.
+receive_fillmode:
+  ja: フィルモードに変更しました。
+  en: Changed to fill mode.
+receive_onewaymode:
+  ja: ワンウェイモードに変更しました。
+  en: Changed to one-way mode.
+receive_reset:
+  ja: リセットしました。
+  en: Reset.
+receive_on:
+  ja: 始動します。
+  en: Starts.
+receive_off:
+  ja: 停止します。
+  en: Stop.
+cone_not_found:
+  ja: 目標物を見つけられませんでした。
+  en: I could not find the target.
+mission_complete:
+  ja: 作業完了しました。
+  en: Work completed.
+reverse:
+  ja: 逆回りに作業を開始します。
+  en: Start working backwards.
+receive_climbmode:
+  ja: クライムモードに変更しました。
+  en: Changed to climb mode.
+become_leader:
+  ja: リーダーとして行動します。
+  en: Act as a leader.
+become_trailer:
+  ja: トレイラーとして行動します。
+  en: Act as a trailer.
+reach_top:
+  ja: バンプしました。
+  en: Bumped.
+search_partner:
+  ja: パートナーを探しています。
+  en: I am looking for a partner.
+found_partner:
+  ja: パートナーが見つかりました。
+  en: A partner has been found.
+person_detecting_warn:
+  ja: 人を検出しました。
+  en: We detected a person.
+receive_aroundmode:
+  ja: アラウンドモードに変更しました。
+  en: Changed to Around mode.
+receive_monitorpersonmode:
+  ja: 人監視モードに変更しました。
+  en: Changed to human monitoring mode.
+receive_monitoranimalmode:
+  ja: 動物監視モードに変更しました。
+  en: Changed to animal monitoring mode.
+animal_detecting:
+  ja: 動物を検知しました。
+  en: Animal detected.
+receive_followpersonmode:
+  ja: 人追跡モードに変更しました。
+  en: Changed to people tracking mode.
+receive_roundtripmode:
+  ja: 往復モードに変更しました。
+  en: Changed to round-trip mode.
+switch_ocr_mode:
+  ja: OCRモードで動作します。ターゲットは
+  en: 
+target0:
+  ja: 「0」、もう一度言います、「0」。
+  en: 
+target1:
+  ja: 「1」、もう一度言います、「1」。
+  en: 
+target2:
+  ja: 「2」、もう一度言います、「2」。
+  en: 
+target3:
+  ja: 「3」、もう一度言います、「3」。
+  en: 
+target4:
+  ja: 「4」、もう一度言います、「4」。
+  en: 
+target5:
+  ja: 「5」、もう一度言います、「5」。
+  en: 
+target6:
+  ja: 「6」、もう一度言います、「6」。
+  en: 
+target7:
+  ja: 「7」、もう一度言います、「7」。
+  en: 
+target8:
+  ja: 「8」、もう一度言います、「8」。
+  en: 
+target9:
+  ja: 「9」、もう一度言います、「9」。
+  en: 
+update_start:
+  ja: ソフトウェアの更新を始めます。
+  en: 
+update_done:
+  ja: ソフトウェアの更新が終わりました。
+  en: 

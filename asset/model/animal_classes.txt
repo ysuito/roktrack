@@ -1,0 +1,15 @@
+0: bear
+1: deer
+2: monkey
+3: boar
+4: badger
+5: cat
+6: civet
+7: dummy1
+8: dog
+9: fox
+10: hare
+11: mice
+12: dummy2
+13: racoon
+14: squirrel

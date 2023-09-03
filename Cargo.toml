@@ -1,0 +1,26 @@
+[package]
+name = "roktrack"
+version = "0.1.0"
+edition = "2021"
+authors = ["Yuta Suito <m4107108@outlook.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.20"
+log4rs = "1.2.0"
+serde = { version = "1.0.104", features = ["derive"] }
+toml = "0.7.6"
+soloud = "1.0.5"
+chrono = "0.4.26"
+btleplug = "0.11.0"
+futures = "0.3.28"
+rand = "0.8.5"
+tokio = { version = "1.31.0", features = ["rt"] }
+uuid = "1.4.1"
+bitreader = "0.3.7"
+rppal = "0.14.1"
+rscam = "0.5.5"
+image = "0.24.7"
+ndarray = "0.15.6"
+ort = "1.15.2"
