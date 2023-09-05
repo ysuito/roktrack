@@ -49,8 +49,10 @@ impl V4l2Camera {
     /// This method captures a frame from the camera and saves it to a file specified
     /// in the `RoktrackProperty`. The images are saved with a specific filename format.
     pub fn take_picture(&self) {
-        let _ = self.cap.capture(); // Grab a frame to reduce delay.
-        let frame = self.cap.capture().unwrap();
+        for _ in 0..3 {
+            let _ = self.cap.capture(); // Grab a frame to reduce delay.
+        }
+        let frame = self.cap.capture().unwrap(); // get picture
 
         // Save the original image to the specified file path.
         let mut file = fs::File::create(self.property.path.img.last.clone()).unwrap();

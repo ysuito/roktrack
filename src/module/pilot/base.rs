@@ -45,18 +45,20 @@ pub fn stop(device: &mut Roktrack) -> Option<()> {
 ///
 /// An `Option<()>` where `Some(())` indicates success.
 pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Option<()> {
-    device.inner.clone().lock().unwrap().backward(2000);
+    let binding = device.inner.clone();
+    let mut device_lock = binding.lock().unwrap();
+    device_lock.backward(2000);
     thread::sleep(time::Duration::from_millis(2000));
     match state.phase {
-        Phase::CCW => device.inner.clone().lock().unwrap().left(500),
-        Phase::CW => device.inner.clone().lock().unwrap().right(500),
+        Phase::CCW => device_lock.left(500),
+        Phase::CW => device_lock.right(500),
     };
     thread::sleep(time::Duration::from_millis(500));
-    device.inner.clone().lock().unwrap().forward(2000);
+    device_lock.forward(2000);
     thread::sleep(time::Duration::from_millis(2000));
     match state.phase {
-        Phase::CCW => device.inner.clone().lock().unwrap().right(500),
-        Phase::CW => device.inner.clone().lock().unwrap().left(500),
+        Phase::CCW => device_lock.right(500),
+        Phase::CW => device_lock.left(500),
     };
     thread::sleep(time::Duration::from_millis(500));
     Some(())

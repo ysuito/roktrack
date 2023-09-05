@@ -10,7 +10,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use super::device::DeviceMgmtCommand;
+use super::device::{Chassis, DeviceMgmtCommand, Roktrack};
 
 /// Start the autonomous driving thread.
 pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
@@ -28,7 +28,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     let (channel_neighbor_tx, channel_neighbor_rx): (Sender<Neighbor>, Receiver<Neighbor>) =
         mpsc::channel();
     // For Device Thread (not used in this code)
-    let (_channel_device_mgmt_tx, _channel_device_mgmt_rx): (
+    let (_channel_device_mgmt_tx, channel_device_mgmt_rx): (
         Sender<DeviceMgmtCommand>,
         Receiver<DeviceMgmtCommand>,
     ) = mpsc::channel();
@@ -42,6 +42,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
 
     // Initialize the device (not used in this code).
     let mut device = crate::module::device::Roktrack::new(property.conf.clone());
+    device.run(channel_device_mgmt_rx);
     // Initialize the vision module and start the inference thread.
     let vision = RoktrackVision::new(property.clone());
     vision.run(channel_detections_tx, channel_vision_mgmt_rx);
@@ -50,12 +51,14 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     let mut state = RoktrackState::new();
 
     thread::spawn(move || loop {
+        // Sleep to control the loop rate.
+        thread::sleep(Duration::from_millis(10));
         // Get new neighbor information.
-        let neighbor = match channel_neighbor_rx.try_recv() {
+        let _neighbor = match channel_neighbor_rx.try_recv() {
             Ok(neighbor) => {
                 // Handle commands from the parent (smartphone app).
                 if neighbor.identifier == 0 {
-                    command_handler(&mut state, &neighbor);
+                    command_handler(&mut state, &neighbor, &mut device);
                 }
                 // Update the neighbor table.
                 neighbors.insert(neighbor.identifier, neighbor.clone());
@@ -70,8 +73,8 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             Err(_) => None,
         };
 
-        // If there is no change in the situation, skip the rest of the loop.
-        if neighbor.is_none() && detections.is_none() {
+        // If there is no detections, skip the rest of the loop.
+        if detections.is_none() {
             continue;
         }
 
@@ -98,20 +101,18 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             .lock()
             .unwrap()
             .cast(&state.identifier, payload);
-
-        // Sleep to control the loop rate.
-        thread::sleep(Duration::from_millis(100));
     })
 }
 
 /// Handle commands received from neighbors.
-fn command_handler(state: &mut RoktrackState, neighbor: &Neighbor) {
+fn command_handler(state: &mut RoktrackState, neighbor: &Neighbor, device: &mut Roktrack) {
     if neighbor.dest == 255 {
         match ParentMsg::from_u8(neighbor.msg) {
             // Switch the state if states differ between self and parent.
             ParentMsg::Off => {
                 if state.state {
                     state.state = false;
+                    device.inner.clone().lock().unwrap().stop();
                 }
             }
             ParentMsg::On => {

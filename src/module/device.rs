@@ -41,6 +41,8 @@ impl Roktrack {
         let local_self = self.inner.clone();
         thread::spawn(move || {
             loop {
+                // Sleep to control the loop rate.
+                thread::sleep(Duration::from_millis(10));
                 // Handle Stop command.
                 if let Ok(DeviceMgmtCommand::Stop) = rx.try_recv() {
                     local_self.lock().unwrap().stop();
@@ -61,8 +63,6 @@ impl Roktrack {
                         local_self.clone().lock().unwrap().pause();
                     }
                 }
-                // Sleep to control the loop rate.
-                thread::sleep(Duration::from_millis(10));
             }
         })
     }
@@ -292,7 +292,7 @@ mod tests {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
         let conf = crate::module::util::conf::toml::load(&paths.dir.data);
         let roktrack = Roktrack::new(conf);
-        assert!(roktrack.inner.clone().lock().unwrap().measure_temp() < 20.0);
+        assert!((roktrack.inner.clone().lock().unwrap().measure_temp() > 20.0));
         assert!(roktrack.inner.clone().lock().unwrap().measure_temp() < 70.0);
     }
 }

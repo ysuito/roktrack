@@ -85,6 +85,7 @@ impl BleBroadCast {
                                 neighbor.mac = mac_addr.clone();
                                 neighbor.manufacturer_id = manufacturer_id;
                                 tx.send(neighbor).unwrap();
+                                log::info!("in com {}", mac_addr);
                             }
                         }
                         CentralEvent::ServiceDataAdvertisement { id, service_data } => {

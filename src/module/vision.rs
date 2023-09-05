@@ -63,6 +63,8 @@ impl RoktrackVision {
         let local_property = self.property.clone(); // Clone the property field to avoid borrowing issues
 
         thread::spawn(move || loop {
+            // Wait for a short time before repeating the loop
+            thread::sleep(Duration::from_millis(100));
             // Spawn a new thread and run an infinite loop
             // Read the management commands from the receiver and match them
             match rx.try_recv() {
@@ -110,9 +112,6 @@ impl RoktrackVision {
                     .infer(&local_property.path.img.last, session_type);
                 tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
             }
-
-            // Wait for a short time before repeating the loop
-            thread::sleep(Duration::from_millis(100));
         })
     }
 }
