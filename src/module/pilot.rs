@@ -56,7 +56,7 @@ impl Modes {
 }
 
 /// This enum represents the direction of laps.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Phase {
     CW,
     CCW,
@@ -154,5 +154,40 @@ impl RoktrackState {
         // Padding
         val.resize(23, 0);
         val
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modes_conversion_test() {
+        // from u8
+        assert_eq!(Modes::from_u8(0), Modes::Fill);
+        assert_eq!(Modes::from_u8(254), Modes::Unknown);
+        // to u8
+        assert_eq!(Modes::to_u8(Modes::Fill), 0);
+        assert_eq!(Modes::to_u8(Modes::Unknown), 255);
+    }
+
+    #[test]
+    fn roktrack_state_test() {
+        let mut state = RoktrackState::new();
+        // reset test
+        state.rest = 0.9;
+        assert_eq!(state.rest, 0.9);
+        state.reset();
+        assert_eq!(state.rest, 1.0);
+        // invert phase test
+        assert_eq!(state.phase, Phase::CCW);
+        state.invert_phase();
+        assert_eq!(state.phase, Phase::CW);
+        // dump test
+        let neighbors = HashMap::new();
+        assert_eq!(
+            state.dump(&neighbors),
+            [100, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
+        )
     }
 }

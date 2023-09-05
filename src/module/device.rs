@@ -119,10 +119,12 @@ impl RoktrackInner {
     pub fn adjust_power(&mut self, left: f64, right: f64) {
         let new_left = self.drive_motor_left.power + left;
         if 0.4 < new_left && new_left < 1.0 {
+            // When output is set to 0.4 or less, there is an unusual noise.
             self.drive_motor_left.power = new_left;
         }
         let new_right = self.drive_motor_right.power + right;
         if 0.4 < new_right && new_right < 1.0 {
+            // When output is set to 0.4 or less, there is an unusual noise.
             self.drive_motor_right.power = new_right;
         }
     }
@@ -198,7 +200,11 @@ mod tests {
     use std::{thread, time};
 
     /// Test the drive system.
+    ///
+    /// NOTE: This test must be run in a single thread.
+    ///       Calling multiple device instances in parallel will result in an error.
     #[test]
+    #[ignore]
     fn drive_test() {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
         let conf = crate::module::util::conf::toml::load(&paths.dir.data);
@@ -287,7 +293,11 @@ mod tests {
     }
 
     /// Test temperature measurement.
+    ///
+    /// NOTE: This test must be run in a single thread.
+    ///       Calling multiple device instances in parallel will result in an error.
     #[test]
+    #[ignore]
     fn measure_temp_test() {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
         let conf = crate::module::util::conf::toml::load(&paths.dir.data);

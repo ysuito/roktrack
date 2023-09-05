@@ -48,7 +48,7 @@ fn init_log(dir: &str, name: &str) {
     let logfile = FileAppender::builder() // Create a new FileAppender builder
         .encoder(Box::new(PatternEncoder::new(
             // Set the encoder to a new PatternEncoder with a custom format
-            "{h({d(%Y-%m-%d %H:%M:%S)(utc)} - {l}: {m}{n})}",
+            "{h({d} - {l}: {m}{n})}",
         )))
         .build(join(&[
             // Build the FileAppender with the joined path of the directory, the log directory, and the name
@@ -63,4 +63,40 @@ fn init_log(dir: &str, name: &str) {
         .build(Root::builder().appender("logfile").build(LevelFilter::Info)) // Build the Config with a Root that uses the "logfile" appender and has a level filter of Info
         .unwrap(); // Unwrap the result or panic if there is an error
     log4rs::init_config(config).unwrap(); // Initialize the logger system with the Config or panic if there is an error
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use log::{debug, error, info, warn};
+    use std::fs;
+    use std::path::Path;
+
+    // A simple test case for the init_log function
+    #[test]
+    fn test_log() {
+        // Define a test directory and name
+        let dir = "/tmp/roktracktest/";
+        let name = "test_log";
+
+        // Call the init_log function
+        init_log(dir, name);
+
+        // Perform some logging
+        debug!("Debug Message");
+        info!("Info Message");
+        warn!("Warning Message");
+        error!("Error Message");
+
+        // Read the contents of the log file
+        let log_file_path_str = "/tmp/roktracktest/log/test_log.log";
+        let log_file_path = Path::new(log_file_path_str);
+        let log_contents = fs::read_to_string(log_file_path).expect("Failed to read log file");
+
+        // Assert that log messages are present in the file
+        assert!(!log_contents.contains("Debug Message"));
+        assert!(log_contents.contains("Info Message"));
+        assert!(log_contents.contains("Warning Message"));
+        assert!(log_contents.contains("Error Message"));
+    }
 }
