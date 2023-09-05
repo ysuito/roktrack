@@ -1,45 +1,52 @@
 //! Config Handler.
-//!
 
 use serde::{Deserialize, Serialize};
 
+/// Provides TOML config file handling.
 pub mod toml {
-    //! Provide toml config file handling.
+
+    use super::DEFAULT_CONFIG;
+    use crate::module::define;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::Path;
 
-    use crate::module::{define, util::conf::DEFAULT_CONFIG};
-
-    // https://smile-jsp.hateblo.jp/entry/2020/04/20/170000
-
-    /// # Load config file
+    /// Loads a configuration file from the given directory.
+    /// If not found, generates a default config file.
     ///
-    /// Reads a configuration file.
-    /// If not found, generate a default config file.
+    /// # Arguments
+    ///
+    /// * `dir` - The directory where the configuration file is located or should be created.
     ///
     pub fn load(dir: &str) -> super::Config {
-        // check config file existence
+        // Check if the config file exists
         let path = Path::new(dir).join(define::path::CONF_FILE);
         let exist: bool = path.is_file();
+
         if !exist {
-            // create default config
+            // Create the default config if it doesn't exist
             let config: super::Config = toml::from_str(DEFAULT_CONFIG).unwrap();
             let toml_str = toml::to_string(&config).unwrap();
             let mut file = File::create(&path).unwrap();
             file.write_all(toml_str.as_bytes()).unwrap();
         }
-        // load config
+
+        // Load the config
         let conf_str: String = std::fs::read_to_string(&path).unwrap();
         let setting: Result<super::Config, toml::de::Error> = toml::from_str(&conf_str);
+
         match setting {
             Ok(conf) => conf,
-            Err(e) => panic!("Filed to parse TOML: {}", e),
+            Err(e) => panic!("Failed to parse TOML: {}", e),
         }
     }
-    /// # Save config file
+
+    /// Saves a configuration file to the given directory.
     ///
-    /// Save a configuration file.
+    /// # Arguments
+    ///
+    /// * `dir` - The directory where the configuration file should be saved.
+    /// * `conf` - The configuration data to be saved.
     ///
     pub fn save(dir: &str, conf: super::Config) {
         let toml_str = toml::to_string(&conf).unwrap();
@@ -48,8 +55,8 @@ pub mod toml {
         file.write_all(toml_str.as_bytes()).unwrap();
     }
 }
-/// Retain config.
-///
+
+/// Represents the configuration data structure.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub system: System,
@@ -61,8 +68,8 @@ pub struct Config {
     pub notification: Notification,
     pub detectthreshold: DetectThreshold,
 }
-/// Retain system parameter
-///
+
+/// Represents system-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct System {
     pub persistent_dir: String,
@@ -70,8 +77,8 @@ pub struct System {
     pub log_speaker_level: String,
     pub lang: String,
 }
-/// Retain drive parameter
-///
+
+/// Represents drive-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Drive {
     pub default_state: String,
@@ -80,8 +87,8 @@ pub struct Drive {
     pub turn_adj: f32,
     pub motor_driver: String,
 }
-/// Retain camera parameter
-///
+
+/// Represents camera-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Camera {
     pub video_idx: i8,
@@ -89,8 +96,8 @@ pub struct Camera {
     pub width: u16,
     pub height: u16,
 }
-/// Retain pin parameter
-///
+
+/// Represents pin-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Pin {
     pub left_pin1: u8,
@@ -102,28 +109,28 @@ pub struct Pin {
     pub work2_pin: u8,
     pub work_ctrl_positive: bool,
 }
-/// Retain pwm parameter
-///
+
+/// Represents PWM-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Pwm {
     pub pwm_power_left: f64,
     pub pwm_power_right: f64,
 }
-/// Retain vision parameter
-///
+
+/// Represents vision-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Vision {
     pub detector: String,
     pub ocr: bool,
 }
-/// Retain notification parameter
-///
+
+/// Represents notification-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Notification {
     pub line_notify_token: String,
 }
-/// Retain detection threshold parameter
-///
+
+/// Represents detection threshold-related configuration parameters.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DetectThreshold {
     pub pylon: f32,
@@ -131,46 +138,54 @@ pub struct DetectThreshold {
     pub animal: f32,
     pub roktrack: f32,
 }
-// default config
+
+// Default configuration data in TOML format
 const DEFAULT_CONFIG: &str = r#"
 [system]
-  persistent_dir = '/data/roktrack' # For Development
-  ephemeral_dir = '/run/user/1000/roktrack' # '/run/user/1000/roktrack's
-  log_speaker_level = 'INFO'
-  lang = 'ja' # ja, en
+  persistent_dir = '/data/roktrack' # Directory for persistent data (Development)
+  ephemeral_dir = '/run/user/1000/roktrack' # Directory for ephemeral data
+  log_speaker_level = 'INFO' # Log speaker level (e.g., 'INFO', 'DEBUG')
+  lang = 'ja' # Language setting ('ja' for Japanese, 'en' for English)
+
 [drive]
-  default_state = 'on' # on, off
-  mode = 'fill' # fill, oneway, climb
-  minimum_pylon_height = 0
-  turn_adj = 1
-  motor_driver = 'ZK_5AD' # ZK_5AD(default), IRF3205
+  default_state = 'on' # Default state of the drive ('on' or 'off')
+  mode = 'fill' # Drive mode ('fill', 'oneway', 'climb')
+  minimum_pylon_height = 0 # Minimum pylon height for operations
+  turn_adj = 1 # Turn adjustment factor
+  motor_driver = 'ZK_5AD' # Motor driver type ('ZK_5AD', 'IRF3205')
+
 [camera]
-  video_idx = -1
-  grab_times = 3
-  width = 1280
-  height = 720
+  video_idx = -1 # Video index (-1 for default)
+  grab_times = 3 # Number of image grabs
+  width = 1280 # Image width
+  height = 720 # Image height
+
 [pin]
-  left_pin1 = 22 # DIGITAL
-  left_pin2 =  23 # PWM
-  right_pin1 = 24 # DIGITAL
-  right_pin2 = 25 # PWM
-  bumper_pin = 26
-  work1_pin = 14 # 正理論のリレーの場合は、17にする
-  work2_pin = 18
-  work_ctrl_positive = false # 正理論のリレーの場合は、Trueとする
+  left_pin1 = 22 # Left motor control pin 1 (DIGITAL)
+  left_pin2 =  23 # Left motor control pin 2 (PWM)
+  right_pin1 = 24 # Right motor control pin 1 (DIGITAL)
+  right_pin2 = 25 # Right motor control pin 2 (PWM)
+  bumper_pin = 26 # Bumper sensor pin
+  work1_pin = 14 # Work motor control pin 1 (for relay, use 17)
+  work2_pin = 18 # Work motor control pin 2
+  work_ctrl_positive = false # Work motor control polarity (for relay, set to true)
+
 [pwm]
-  pwm_power_left = 1.0 # %
-  pwm_power_right = 1.0 # %
+  pwm_power_left = 1.0 # PWM power for the left motor (in percentage)
+  pwm_power_right = 1.0 # PWM power for the right motor (in percentage)
+
 [vision]
-  detector = 'yolov7onnx' # yolov7onnx, yolox(deplicated), yolov7(deplicated)
-  ocr = true
+  detector = 'yolov7onnx' # Object detection model ('yolov7onnx', deprecated models)
+  ocr = true # Enable optical character recognition (OCR)
+
 [notification]
-  line_notify_token = 'YOUR-LINE-NOTIFY-TOKEN'
+  line_notify_token = 'YOUR-LINE-NOTIFY-TOKEN' # Line Notify token for notifications
+
 [detectthreshold]
-  pylon = 0
-  person = 0.7
-  animal = 0
-  roktrack = 0.5
+  pylon = 0 # Detection threshold for pylons
+  person = 0.7 # Detection threshold for people
+  animal = 0 # Detection threshold for animals
+  roktrack = 0.5 # Detection threshold for Roktrack objects
 "#;
 
 #[cfg(test)]

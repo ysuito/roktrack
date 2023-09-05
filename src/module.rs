@@ -1,8 +1,9 @@
-//! Modules
-pub mod com;
-pub mod define;
-pub mod device;
-pub mod drive;
-pub mod pilot;
-pub mod util;
-pub mod vision;
+//! This module contains all the sub-modules of the project.
+
+pub mod com; // Communication module: Handles communication-related functionality.
+pub mod define; // Definition module: Contains definitions and constants used throughout the project.
+pub mod device; // Device module: Manages hardware devices and interactions.
+pub mod drive; // Drive module: Handles autonomous driving logic and control.
+pub mod pilot; // Pilot module: Manages autonomous driving modes and state.
+pub mod util; // Utility module: Provides various utility functions and helpers.
+pub mod vision; // Vision module: Handles computer vision and object detection.

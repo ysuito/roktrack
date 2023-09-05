@@ -14,6 +14,7 @@ pub mod onnx {
 
     /// Session Types
     ///
+    #[derive(Debug, Clone, PartialEq)]
     pub enum SessionType {
         Sz320, // basic 320 * 320 inference
         Sz640, // basic 640 * 640 inference
@@ -51,7 +52,8 @@ pub mod onnx {
     /// YoloV8 session store.
     ///
     pub struct YoloV8 {
-        sessions: Sessions,
+        pub sessions: Sessions,
+        pub session_type: SessionType,
     }
     /// YoloV8 default method.
     ///
@@ -68,6 +70,7 @@ pub mod onnx {
         pub fn new() -> Self {
             Self {
                 sessions: Self::build_pylon_sessions(),
+                session_type: SessionType::Sz320,
             }
         }
         /// get session

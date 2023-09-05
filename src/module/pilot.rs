@@ -1,15 +1,15 @@
-//! Provide automatic operation modes.
-//!
-pub mod base;
-pub mod fill;
-pub mod oneway;
+//! This module provides automatic operation modes.
 
-use super::com::Neighbor;
-use rand::{seq::SliceRandom, Rng};
-use std::collections::HashMap;
+// Import the submodules for operation modes
+pub mod base; // Base module
+pub mod fill; // Fill module
+pub mod oneway; // One-way module
+
+use super::com::Neighbor; // Import the Neighbor type from the com module
+use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
+use std::collections::HashMap; // Import HashMap for storage
 
 /// Automatic operation modes.
-///
 #[derive(Debug, Clone, PartialEq)]
 pub enum Modes {
     Fill,
@@ -23,11 +23,8 @@ pub enum Modes {
     Unknown,
 }
 
-/// Automatic operation modes's methods.
-///
 impl Modes {
-    /// Convert int to operation mode.
-    ///
+    /// Convert an integer to an operation mode.
     pub fn from_u8(i: u8) -> Modes {
         match i {
             0 => Modes::Fill,
@@ -41,8 +38,8 @@ impl Modes {
             _ => Modes::Unknown,
         }
     }
-    /// convert operation mode to int.
-    ///
+
+    /// Convert an operation mode to an integer.
     pub fn to_u8(mode: Modes) -> u8 {
         match mode {
             Modes::Fill => 0,
@@ -58,49 +55,40 @@ impl Modes {
     }
 }
 
-/// Direction of laps.
-///
+/// This enum represents the direction of laps.
 #[derive(Debug, Clone)]
 pub enum Phase {
     CW,
     CCW,
 }
 
-/// State for auto pilot.
-///
+/// This struct represents the state for auto-pilot.
 #[derive(Debug, Clone)]
 pub struct RoktrackState {
-    pub state: bool,        // on / off
-    pub mode: Modes,        // drive mode
-    pub turn_count: i8,     // continuous turn counter
-    pub ex_height: u16,     // last seen marker height for searching next one
-    pub rest: f32,          // remaining work. 0.0 -> 1.0
-    pub target_height: u16, // when you approach this target height, start looking for the next marker.
-    pub phase: Phase,       // direction of laps.
-    pub constant: f32,      // amount to be subtracted from rest for each marker approach.
-    pub marker_id: i8,      // record the ID assigned to the marker when in ocr mode is on
-    pub pi_temp: f32,       // rpi's soc temp
-    pub msg: u8,            // current state message
-    pub identifier: u8,     // my identifier
-    pub img_width: u32,     // width of image to process
-    pub img_height: u32,    // height of image to process
+    pub state: bool,        // On / Off
+    pub mode: Modes,        // Drive mode
+    pub turn_count: i8,     // Continuous turn counter
+    pub ex_height: u16,     // Last seen marker height for searching the next one
+    pub rest: f32,          // Remaining work (0.0 -> 1.0)
+    pub target_height: u16, // When you approach this target height, start looking for the next marker.
+    pub phase: Phase,       // Direction of laps
+    pub constant: f32,      // Amount to be subtracted from rest for each marker approach
+    pub marker_id: i8,      // Record the ID assigned to the marker when OCR mode is on
+    pub pi_temp: f32,       // Raspberry Pi's SoC temperature
+    pub msg: u8,            // Current state message
+    pub identifier: u8,     // My identifier
+    pub img_width: u32,     // Width of the image to process
+    pub img_height: u32,    // Height of the image to process
 }
 
-/// RoktrackState's default methods.
-///
 impl Default for RoktrackState {
-    /// Return RoktrackState default.
-    ///
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// RoktrackState's methods.
-///
 impl RoktrackState {
-    /// RoktrackState's constructor.
-    ///
+    /// Create a new RoktrackState with default values.
     pub fn new() -> Self {
         Self {
             state: true,
@@ -124,8 +112,7 @@ impl RoktrackState {
         }
     }
 
-    /// Reset RoktrackState
-    ///
+    /// Reset RoktrackState to default values.
     pub fn reset(&mut self) {
         self.state = false;
         self.turn_count = -1;
@@ -140,33 +127,31 @@ impl RoktrackState {
         self.img_height = 240;
     }
 
-    /// CCW -> CW with resetting counters.
-    ///
+    /// Invert the phase (CCW -> CW) and reset counters.
     pub fn invert_phase(&mut self) {
         self.reset();
         self.phase = Phase::CW;
     }
 
-    /// Dump self state for broadcasting.
-    ///
-    pub fn dump(&mut self, neighbors: HashMap<u8, Neighbor>) -> Vec<u8> {
+    /// Dump the state for broadcasting.
+    pub fn dump(&mut self, neighbors: &HashMap<u8, Neighbor>) -> Vec<u8> {
         let used_identifiers: Vec<u8> = neighbors.keys().cloned().collect();
-        if used_identifiers.clone().contains(&self.identifier) {
+        if used_identifiers.contains(&self.identifier) {
             let pool: Vec<u8> = (1..250).filter(|x| !used_identifiers.contains(x)).collect();
             self.identifier = *pool.choose(&mut rand::thread_rng()).unwrap();
         }
-        // construct first byte
+        // Construct the first byte
         let state_and_rest = format!("{:b}{:b}", self.state as u8, (self.rest * 100.0) as u8);
         let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap() as u8;
-        // construct payload
+        // Construct the payload
         let mut val = vec![
-            state_and_rest,                  // state and rest
-            self.pi_temp as u8,              // pi temp
-            Modes::to_u8(self.mode.clone()), // mode as int
-            self.msg,                        // msg
-            255,                             // dest
+            state_and_rest,                  // State and rest
+            self.pi_temp as u8,              // Pi temperature
+            Modes::to_u8(self.mode.clone()), // Mode as int
+            self.msg,                        // Message
+            255,                             // Destination
         ];
-        // padding
+        // Padding
         val.resize(23, 0);
         val
     }

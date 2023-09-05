@@ -31,93 +31,74 @@
 //   | (CW laps)
 // MissionComplete
 
-use crate::module::device::motor::Motor;
-use crate::module::device::Roktrack;
-use crate::module::pilot::{Phase, RoktrackState};
-use crate::module::util::init::RoktrackProperty;
-use crate::module::vision::detector::onnx::SessionType;
-use crate::module::vision::detector::{FilterClass, RoktrackClasses};
-use crate::module::vision::RoktrackVision;
+use std::sync::mpsc::Sender;
+
 use crate::module::{
+    device::motor::Motor,
+    device::Roktrack,
     pilot::base,
-    vision::detector::{sort, Detection},
+    pilot::{Phase, RoktrackState},
+    vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
+    vision::VisionMgmtCommand,
 };
 
-/// Function called from thread
-///
+/// Function called from a thread to handle the Fill Drive Pilot logic
 pub fn handler(
-    prop: &RoktrackProperty,
     state: &mut RoktrackState,
-    vision: &RoktrackVision,
     device: &mut Roktrack,
+    detections: &mut [Detection],
+    tx: Sender<VisionMgmtCommand>,
 ) {
-    // take image
-    vision.cam.take();
-
-    // System Safety
-    let system_risk = assess_system_risk(state, device);
-    let system_risk = match system_risk {
-        SystemRisk::StateOff => base::stop(device),
-        SystemRisk::HighTemp => base::stop(device),
-        SystemRisk::Bumped => base::escape(state, device),
+    // Assess and handle system safety
+    let system_risk = match assess_system_risk(state, device) {
+        SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
+        SystemRisk::Bumped => Some(base::escape(state, device)),
         SystemRisk::None => None,
     };
     if system_risk.is_some() {
-        return; // risk exists, continue
+        return; // Risk exists, continue
     }
 
-    // inference
-    let mut dets = vision.det.infer(
-        &prop.path.img.last.clone(),
-        match state.img_width {
-            320 => SessionType::Sz320,
-            640 => SessionType::Sz640,
-            _ => panic!("Invalid Image Size"),
-        },
-    );
-    // Vision Safety
-    let vision_risk: VisionRisk = assess_vision_risk(&mut dets);
-    let vision_risk = match vision_risk {
-        VisionRisk::PersonDetected => base::stop(device),
-        VisionRisk::RoktrackDetected => base::escape(state, device),
+    // Assess and handle vision safety
+    let vision_risk = match assess_vision_risk(detections) {
+        VisionRisk::PersonDetected | VisionRisk::RoktrackDetected => Some(base::stop(device)),
         VisionRisk::None => None,
     };
     if vision_risk.is_some() {
-        return; // risk exists, continue
+        return; // Risk exists, continue
     }
 
-    // sort marker
-    dets = match state.phase {
-        Phase::CCW => sort::right(&mut dets),
-        Phase::CW => sort::left(&mut dets),
-    };
-    // pick up a marker
-    let marker = match dets.is_empty() {
-        true => Detection::default(),
-        false => dets[0],
+    // Sort markers based on the current phase
+    let detections = match state.phase {
+        Phase::CCW => sort::right(detections),
+        Phase::CW => sort::left(detections),
     };
 
-    // work motor on
-    device.work_motor.cw();
-    // calc const
+    // Get the first detected marker or a default one
+    let marker = detections.get(0).cloned().unwrap_or_default();
+
+    // Turn on the work motor
+    device.inner.clone().lock().unwrap().work_motor.cw();
+
+    // Calculate constants based on marker and image height
     state.constant = base::calc_constant(state.constant, state.img_height, marker.h);
 
-    // handle normal
-    let act_phase = assess_situation(state, marker);
-    match act_phase {
+    // Handle the current phase
+    match assess_situation(state, marker) {
         ActPhase::TurnCountExceeded => base::halt(state, device),
         ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
         ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
         ActPhase::InvertPhase => base::invert_phase(state, device),
         ActPhase::MissionComplete => base::mission_complete(state, device),
-        ActPhase::TurnKeep => base::keep_turn(state, device),
-        ActPhase::Stand => base::stand(state),
+        ActPhase::TurnKeep => base::keep_turn(state, device, tx),
+        ActPhase::Stand => base::stand(state, tx),
         ActPhase::StartTurn => base::start_turn(state, device),
         ActPhase::ReachMarker => base::reach_marker(state, device, marker),
-        ActPhase::Proceed => base::proceed(state, device, marker),
+        ActPhase::Proceed => base::proceed(state, device, marker, tx),
         ActPhase::None => None,
     };
 }
+
 /// System Risks
 ///
 #[derive(Debug, Clone)]
@@ -132,9 +113,9 @@ enum SystemRisk {
 fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> SystemRisk {
     if !state.state {
         SystemRisk::StateOff
-    } else if device.measure_temp() > 70.0 {
+    } else if device.inner.clone().lock().unwrap().measure_temp() > 70.0 {
         SystemRisk::HighTemp
-    } else if device.bumper.switch.is_low() {
+    } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
         SystemRisk::Bumped
     } else {
         SystemRisk::None
@@ -175,8 +156,7 @@ enum ActPhase {
     Proceed,
     None,
 }
-/// Identify actions
-///
+/// Function to assess the current situation and determine the appropriate action phase
 fn assess_situation(state: &RoktrackState, marker: Detection) -> ActPhase {
     if 10 <= state.turn_count {
         ActPhase::TurnCountExceeded

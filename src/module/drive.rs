@@ -1,64 +1,114 @@
-//! Provide Loop for Drive.
-//!
+//! Provides a loop for autonomous driving.
 
+use crate::module::com::{BleBroadCast, Neighbor, ParentMsg};
+use crate::module::pilot::{fill, oneway, Modes, RoktrackState};
+use crate::module::util::init::RoktrackProperty;
+use crate::module::vision::detector::Detection;
+use crate::module::vision::{RoktrackVision, VisionMgmtCommand};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::{thread, time};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
-use crate::module::pilot::Modes;
-use crate::module::pilot::{fill, oneway};
+use super::device::DeviceMgmtCommand;
 
-use super::com::{Neighbor, ParentMsg};
-use super::pilot::RoktrackState;
+/// Start the autonomous driving thread.
+pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
+    // Prepare communication channels for threads.
+    // For Vision
+    let (channel_vision_mgmt_tx, channel_vision_mgmt_rx): (
+        Sender<VisionMgmtCommand>,
+        Receiver<VisionMgmtCommand>,
+    ) = mpsc::channel();
+    let (channel_detections_tx, channel_detections_rx): (
+        Sender<Vec<Detection>>,
+        Receiver<Vec<Detection>>,
+    ) = mpsc::channel();
+    // For BLE Communication
+    let (channel_neighbor_tx, channel_neighbor_rx): (Sender<Neighbor>, Receiver<Neighbor>) =
+        mpsc::channel();
+    // For Device Thread (not used in this code)
+    let (_channel_device_mgmt_tx, _channel_device_mgmt_rx): (
+        Sender<DeviceMgmtCommand>,
+        Receiver<DeviceMgmtCommand>,
+    ) = mpsc::channel();
 
-/// Start drive thread
-///
-pub fn run(
-    neighbor_table: Arc<Mutex<HashMap<u8, crate::module::com::Neighbor>>>,
-    property: crate::module::util::init::RoktrackProperty,
-    com: crate::module::com::BleBroadCast,
-) -> JoinHandle<()> {
-    // init device
+    // Initialize the neighbors table.
+    let mut neighbors = HashMap::new();
+
+    // Start the BLE communication thread.
+    let com = BleBroadCast::new();
+    let _com_handler = com.listen(channel_neighbor_tx);
+
+    // Initialize the device (not used in this code).
     let mut device = crate::module::device::Roktrack::new(property.conf.clone());
-    // init vision
-    let vision = crate::module::vision::RoktrackVision::new(property.clone());
-    // init state
-    let mut state = crate::module::pilot::RoktrackState::new();
-    // neighbor info sharing table
-    let table_clone: Arc<Mutex<HashMap<u8, crate::module::com::Neighbor>>> =
-        Arc::clone(&neighbor_table);
-    thread::spawn(move || loop {
-        // read com table if new msg found, do below.
-        let neighbors = table_clone.clone().lock().unwrap().clone();
+    // Initialize the vision module and start the inference thread.
+    let vision = RoktrackVision::new(property.clone());
+    vision.run(channel_detections_tx, channel_vision_mgmt_rx);
 
-        // extract command
-        // 0 is indentifier of commander(smartphone app)
-        if let Some(v) = neighbors.get(&0) {
-            command_handler(&mut state, v);
+    // Initialize the state.
+    let mut state = RoktrackState::new();
+
+    thread::spawn(move || loop {
+        // Get new neighbor information.
+        let neighbor = match channel_neighbor_rx.try_recv() {
+            Ok(neighbor) => {
+                // Handle commands from the parent (smartphone app).
+                if neighbor.identifier == 0 {
+                    command_handler(&mut state, &neighbor);
+                }
+                // Update the neighbor table.
+                neighbors.insert(neighbor.identifier, neighbor.clone());
+                Some(neighbor)
+            }
+            Err(_) => None,
+        };
+
+        // Get new inference results.
+        let detections = match channel_detections_rx.try_recv() {
+            Ok(detections) => Some(detections),
+            Err(_) => None,
+        };
+
+        // If there is no change in the situation, skip the rest of the loop.
+        if neighbor.is_none() && detections.is_none() {
+            continue;
         }
-        // select mode
+
+        // Handle different driving modes.
         match state.mode {
-            Modes::Fill => fill::handler(&property, &mut state, &vision, &mut device),
-            Modes::OneWay => oneway::handler(),
+            Modes::Fill => {
+                fill::handler(
+                    &mut state,
+                    &mut device,
+                    &mut detections.unwrap(),
+                    channel_vision_mgmt_tx.clone(),
+                );
+            }
+            Modes::OneWay => {
+                oneway::handler();
+            }
             _ => (),
         }
 
-        // cast my state
-        let payload = state.dump(neighbors);
-        com.cast(&state.identifier, payload);
+        // Broadcast the state to neighbors.
+        let payload = state.dump(&neighbors.clone());
+        com.inner
+            .clone()
+            .lock()
+            .unwrap()
+            .cast(&state.identifier, payload);
 
-        // loop wait
-        thread::sleep(time::Duration::from_millis(100));
+        // Sleep to control the loop rate.
+        thread::sleep(Duration::from_millis(100));
     })
 }
 
-/// Handle commands from neighbor.
-///
+/// Handle commands received from neighbors.
 fn command_handler(state: &mut RoktrackState, neighbor: &Neighbor) {
     if neighbor.dest == 255 {
         match ParentMsg::from_u8(neighbor.msg) {
-            // Switch state if states differ between self and parent.
+            // Switch the state if states differ between self and parent.
             ParentMsg::Off => {
                 if state.state {
                     state.state = false;
@@ -69,7 +119,7 @@ fn command_handler(state: &mut RoktrackState, neighbor: &Neighbor) {
                     state.state = true;
                 }
             }
-            // Reset state if current state is off and receive reset order from parent.
+            // Reset the state if the current state is off and receives a reset order from the parent.
             ParentMsg::Reset => {
                 if !state.state {
                     state.reset();
