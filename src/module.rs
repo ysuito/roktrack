@@ -1,6 +1,6 @@
 //! This module contains all the sub-modules of the project.
 
-pub mod com; // Communication module: Handles communication-related functionality.
+// pub mod com; // Communication module: Handles communication-related functionality.
 pub mod define; // Definition module: Contains definitions and constants used throughout the project.
 pub mod device; // Device module: Manages hardware devices and interactions.
 pub mod drive; // Drive module: Handles autonomous driving logic and control.

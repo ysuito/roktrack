@@ -10,6 +10,7 @@ pub mod system {
 
 /// File Paths
 pub mod path {
+
     // Persistent Data Directory
     pub const PERSISTENT_DIR: &str = "/data/";
 

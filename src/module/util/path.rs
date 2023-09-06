@@ -2,7 +2,7 @@
 //!
 //! This module handles path operations for directories and files.
 
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 /// Join Paths
 ///
@@ -15,6 +15,28 @@ pub fn join(paths: &[&str]) -> String {
         path.push(p);
     }
     path.into_os_string().into_string().unwrap()
+}
+
+pub fn relative_to_absolute(rel_path: &str) -> Result<PathBuf, std::io::Error> {
+    // Get the directory of the executable
+    let exe_dir = get_executable_directory()?;
+
+    // Combine the executable directory and the relative path
+    let absolute_path = exe_dir.join(rel_path);
+
+    Ok(absolute_path)
+}
+
+// Function to get the directory of the executable
+pub fn get_executable_directory() -> Result<PathBuf, std::io::Error> {
+    let exe_path = env::current_exe()?;
+    let exe_dir = exe_path.parent().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Executable directory not found",
+        )
+    })?;
+    Ok(exe_dir.to_path_buf())
 }
 
 pub mod dir {

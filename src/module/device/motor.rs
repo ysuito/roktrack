@@ -66,6 +66,15 @@ impl Motor for DriveMotor {
     }
 }
 
+impl Drop for DriveMotor {
+    /// This implementation of the `Drop` trait defines the behavior when an instance of `DriveMotor` is being dropped,
+    /// typically when it goes out of scope or is explicitly destroyed. In this case, it ensures that the motor stops
+    /// its operation by calling the `stop()` method.
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 /// Represents a Work Motor for tasks like cutting grass.
 pub struct WorkMotor {
     pin1: rppal::gpio::OutputPin,
@@ -113,6 +122,15 @@ impl Motor for WorkMotor {
         } else {
             self.pin1.set_high();
         }
+    }
+}
+
+impl Drop for WorkMotor {
+    /// This implementation of the `Drop` trait defines the behavior when an instance of `WorkMotor` is being dropped,
+    /// typically when it goes out of scope or is explicitly destroyed. In this case, it ensures that the motor stops
+    /// its operation by calling the `stop()` method.
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 

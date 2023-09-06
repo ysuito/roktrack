@@ -5,9 +5,10 @@ pub mod base; // Base module
 pub mod fill; // Fill module
 pub mod oneway; // One-way module
 
-use super::com::Neighbor; // Import the Neighbor type from the com module
-use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
-use std::collections::HashMap; // Import HashMap for storage
+// use super::com::Neighbor; // Import the Neighbor type from the com module
+// use std::collections::HashMap; // Import HashMap for storage
+// use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
+use rand::{self, Rng}; // Import random number generation
 
 /// Automatic operation modes.
 #[derive(Debug, Clone, PartialEq)]
@@ -133,28 +134,28 @@ impl RoktrackState {
         self.phase = Phase::CW;
     }
 
-    /// Dump the state for broadcasting.
-    pub fn dump(&mut self, neighbors: &HashMap<u8, Neighbor>) -> Vec<u8> {
-        let used_identifiers: Vec<u8> = neighbors.keys().cloned().collect();
-        if used_identifiers.contains(&self.identifier) {
-            let pool: Vec<u8> = (1..250).filter(|x| !used_identifiers.contains(x)).collect();
-            self.identifier = *pool.choose(&mut rand::thread_rng()).unwrap();
-        }
-        // Construct the first byte
-        let state_and_rest = format!("{:b}{:b}", self.state as u8, (self.rest * 100.0) as u8);
-        let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap() as u8;
-        // Construct the payload
-        let mut val = vec![
-            state_and_rest,                  // State and rest
-            self.pi_temp as u8,              // Pi temperature
-            Modes::to_u8(self.mode.clone()), // Mode as int
-            self.msg,                        // Message
-            255,                             // Destination
-        ];
-        // Padding
-        val.resize(23, 0);
-        val
-    }
+    // /// Dump the state for broadcasting.
+    // pub fn dump(&mut self, neighbors: &HashMap<u8, Neighbor>) -> Vec<u8> {
+    //     let used_identifiers: Vec<u8> = neighbors.keys().cloned().collect();
+    //     if used_identifiers.contains(&self.identifier) {
+    //         let pool: Vec<u8> = (1..250).filter(|x| !used_identifiers.contains(x)).collect();
+    //         self.identifier = *pool.choose(&mut rand::thread_rng()).unwrap();
+    //     }
+    //     // Construct the first byte
+    //     let state_and_rest = format!("{:b}{:b}", self.state as u8, (self.rest * 100.0) as u8);
+    //     let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap() as u8;
+    //     // Construct the payload
+    //     let mut val = vec![
+    //         state_and_rest,                  // State and rest
+    //         self.pi_temp as u8,              // Pi temperature
+    //         Modes::to_u8(self.mode.clone()), // Mode as int
+    //         self.msg,                        // Message
+    //         255,                             // Destination
+    //     ];
+    //     // Padding
+    //     val.resize(23, 0);
+    //     val
+    // }
 }
 
 #[cfg(test)]
@@ -184,10 +185,10 @@ mod tests {
         state.invert_phase();
         assert_eq!(state.phase, Phase::CW);
         // dump test
-        let neighbors = HashMap::new();
-        assert_eq!(
-            state.dump(&neighbors),
-            [100, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
-        )
+        // let neighbors = HashMap::new();
+        // assert_eq!(
+        //     state.dump(&neighbors),
+        //     [100, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
+        // )
     }
 }
