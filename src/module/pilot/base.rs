@@ -9,6 +9,7 @@ use std::time;
 use crate::module::device::Chassis;
 use crate::module::device::Roktrack;
 use crate::module::pilot::RoktrackState;
+use crate::module::util::init::RoktrackProperty;
 use crate::module::vision::detector::Detection;
 use crate::module::vision::VisionMgmtCommand;
 
@@ -501,6 +502,87 @@ pub fn proceed(
     }
 
     Some(())
+}
+
+/// Select one marker from several detected markers
+///
+/// The markers are selected in the opposite direction of the direction of rotation.
+/// The rightmost marker on the right for CCW laps, the leftmost marker on the left for CW laps.
+///
+pub fn select_marker(
+    property: RoktrackProperty,
+    state: &mut RoktrackState,
+    detections: Vec<Detection>,
+    device: &mut Roktrack,
+) -> Detection {
+    /// Determine if this marker is eligible for pass-through
+    ///
+    /// If the marker in the foreground is above the target height and another marker exists
+    /// to the right of the screen, the marker in the foreground is passed through.
+    fn determine_pass_through(state: RoktrackState, detections: Vec<Detection>) -> Detection {
+        match detections.len() {
+            0 => Detection::default(),                // No detection
+            1 => detections.first().unwrap().clone(), // The only one
+            2.. => {
+                if detections.first().unwrap().h > state.target_height as u32 {
+                    match state.phase {
+                        Phase::CCW => {
+                            if detections.get(1).unwrap().x1 > state.img_width / 3 {
+                                // Pass-through
+                                detections.get(1).unwrap().clone()
+                            } else {
+                                // Select the marker in the foreground
+                                detections.first().unwrap().clone()
+                            }
+                        }
+                        Phase::CW => {
+                            if detections.get(1).unwrap().x1 < state.img_width * 2 / 3 {
+                                // Pass-through
+                                detections.get(1).unwrap().clone()
+                            } else {
+                                // Select the marker in the foreground
+                                detections.first().unwrap().clone()
+                            }
+                        }
+                    }
+                } else {
+                    detections.first().unwrap().clone() // No exceeded markers, so normal operation
+                }
+            }
+            _ => Detection::default(), // No detection
+        }
+    }
+
+    if property.conf.vision.ocr {
+        if let Some(_previous_marker_id) = state.marker_id {
+            let detection = detections.first().unwrap();
+            if detection.h > 0 && !detection.ids.is_empty() {
+                device.inner.lock().unwrap().stop();
+                thread::sleep(time::Duration::from_millis(5000));
+                state.marker_id = detection.ids.first().copied();
+                device.inner.lock().unwrap().speak("switch_ocr_mode");
+                device
+                    .inner
+                    .lock()
+                    .unwrap()
+                    .speak(format!("target{}", state.marker_id.unwrap()).as_str());
+                detection.clone()
+            } else {
+                detection.clone()
+            }
+        } else {
+            // If there is a marker_id, select the matching one as marker
+            let detections_with_id: Vec<Detection> = detections
+                .iter()
+                .cloned()
+                .filter(|det| !det.ids.is_empty())
+                .collect();
+            determine_pass_through(state.clone(), detections_with_id)
+        }
+    } else {
+        // Get the first detected marker or a default one
+        detections.first().cloned().unwrap_or_default()
+    }
 }
 
 #[cfg(test)]

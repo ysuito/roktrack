@@ -105,11 +105,19 @@ impl RoktrackVision {
             {
                 local_self.lock().unwrap().cam.take_picture(); // Lock the inner field and call the take method on the camera field
                 let session_type = local_self.lock().unwrap().det.session_type.clone(); // Lock the inner field and clone the session type from the detector field
-                let dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
+                let mut dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
                     .lock()
                     .unwrap()
                     .det
                     .infer(&local_property.path.img.last, session_type);
+                // Handle ocr
+                if local_property.conf.vision.ocr {
+                    dets = local_self.lock().unwrap().det.ocr(
+                        &local_property.path.img.last,
+                        dets.clone(),
+                        local_property.as_ref().clone(),
+                    );
+                }
                 tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
             }
         })
@@ -128,9 +136,9 @@ impl RoktrackVisionInner {
     pub fn new(property: RoktrackProperty) -> Self {
         Self {
             // Create a new camera::V4l2 instance by calling the new method on the V4l2 module and passing the property
-            cam: camera::V4l2Camera::new(property),
+            cam: camera::V4l2Camera::new(property.clone()),
             // Create a new detector::onnx::YoloV8 instance by calling the new method on the YoloV8 module
-            det: detector::onnx::YoloV8::new(),
+            det: detector::onnx::YoloV8::new(property.conf),
         }
     }
 }

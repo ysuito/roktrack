@@ -75,7 +75,7 @@ pub fn handler(
     };
 
     // Get the first detected marker or a default one
-    let marker = detections.get(0).cloned().unwrap_or_default();
+    let marker = detections.first().cloned().unwrap_or_default();
 
     // Turn on the work motor
     device.inner.clone().lock().unwrap().work_motor.cw();
@@ -84,7 +84,7 @@ pub fn handler(
     state.constant = base::calc_constant(state.constant, state.img_height, marker.h);
 
     // Handle the current phase
-    match assess_situation(state, marker) {
+    match assess_situation(state, &marker) {
         ActPhase::TurnCountExceeded => base::halt(state, device),
         ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
         ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
@@ -157,7 +157,7 @@ enum ActPhase {
     None,
 }
 /// Function to assess the current situation and determine the appropriate action phase
-fn assess_situation(state: &RoktrackState, marker: Detection) -> ActPhase {
+fn assess_situation(state: &RoktrackState, marker: &Detection) -> ActPhase {
     if 10 <= state.turn_count {
         ActPhase::TurnCountExceeded
     } else if 0 < state.turn_count {

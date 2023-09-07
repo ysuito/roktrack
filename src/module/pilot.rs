@@ -66,15 +66,15 @@ pub enum Phase {
 /// This struct represents the state for auto-pilot.
 #[derive(Debug, Clone)]
 pub struct RoktrackState {
-    pub state: bool,        // On / Off
-    pub mode: Modes,        // Drive mode
-    pub turn_count: i8,     // Continuous turn counter
-    pub ex_height: u16,     // Last seen marker height for searching the next one
-    pub rest: f32,          // Remaining work (0.0 -> 1.0)
+    pub state: bool,           // On / Off
+    pub mode: Modes,           // Drive mode
+    pub turn_count: i8,        // Continuous turn counter
+    pub ex_height: u16,        // Last seen marker height for searching the next one
+    pub rest: f32,             // Remaining work (0.0 -> 1.0)
     pub target_height: u16, // When you approach this target height, start looking for the next marker.
     pub phase: Phase,       // Direction of laps
     pub constant: f32,      // Amount to be subtracted from rest for each marker approach
-    pub marker_id: i8,      // Record the ID assigned to the marker when OCR mode is on
+    pub marker_id: Option<u8>, // Record the ID assigned to the marker when OCR mode is on
     pub pi_temp: f32,       // Raspberry Pi's SoC temperature
     pub msg: u8,            // Current state message
     pub identifier: u8,     // My identifier
@@ -100,7 +100,7 @@ impl RoktrackState {
             target_height: (240.0 * 0.9) as u16,
             phase: Phase::CCW,
             constant: 0.005,
-            marker_id: -1,
+            marker_id: None,
             pi_temp: 0.0,
             msg: 255,
             // Identifier's Preserved Addresses
@@ -122,7 +122,7 @@ impl RoktrackState {
         self.target_height = (240.0 * 0.9) as u16;
         self.phase = Phase::CCW;
         self.constant = 0.005;
-        self.marker_id = -1;
+        self.marker_id = None;
         self.msg = 255;
         self.img_width = 320;
         self.img_height = 240;

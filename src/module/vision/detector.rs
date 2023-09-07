@@ -1,8 +1,11 @@
 //! Provide Object Detection
 //!
 pub mod onnx {
-    use crate::module::define;
-    use image::{imageops::FilterType, ImageBuffer, Pixel, Rgb};
+    use crate::module::{
+        define,
+        util::{conf::Config, init::RoktrackProperty},
+    };
+    use image::{imageops::FilterType, io::Reader, ImageBuffer, Pixel, Rgb};
     use ndarray::{s, Array, Axis, IxDyn};
     use ort::{
         environment::Environment, value::Value, ExecutionProvider, GraphOptimizationLevel,
@@ -55,21 +58,19 @@ pub mod onnx {
         pub sessions: Sessions,
         pub session_type: SessionType,
     }
-    /// YoloV8 default method.
-    ///
-    impl Default for YoloV8 {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
+
     /// Methods for yolov8.
     ///
     impl YoloV8 {
         /// yolov8's constructor.
         ///
-        pub fn new() -> Self {
+        pub fn new(conf: Config) -> Self {
             Self {
-                sessions: Self::build_pylon_sessions(),
+                sessions: if conf.vision.ocr {
+                    Self::build_pylon_ocr_sessions()
+                } else {
+                    Self::build_pylon_sessions()
+                },
                 session_type: SessionType::Sz320,
             }
         }
@@ -169,6 +170,71 @@ pub mod onnx {
                 .into_owned();
             convert_yolo_fmt(out)
         }
+
+        /// Detects numbers in the vicinity of the marker.
+        ///
+        /// The bbox of the marker detected in low resolution is extracted
+        /// from the high resolution image by ratio and applied to OCR.
+        pub fn ocr(
+            &self,
+            impath: &str,
+            dets: Vec<Detection>,
+            property: RoktrackProperty,
+        ) -> Vec<Detection> {
+            // For result
+            let mut new_dets = dets.clone();
+
+            // Picture weights and heights
+            // Resolution for detection
+            let (cw, ch) = match self.session_type {
+                SessionType::Sz320 => (320.0, 320.0),
+                SessionType::Sz640 => (640.0, 640.0),
+                _ => (0.0, 0.0),
+            };
+            // Original resolution
+
+            let (ow, oh) = (
+                property.conf.camera.width as f64,
+                property.conf.camera.height as f64,
+            );
+            // Load original image (full resolution)
+            let mut img = Reader::open(impath).unwrap().decode().unwrap();
+            // Iterates dets.
+            for (i, det) in dets.iter().enumerate() {
+                // Get the relative position of bbox
+                let (rx1, ry1, rx2, ry2) = (
+                    det.x1 as f64 / cw,
+                    det.y1 as f64 / ch,
+                    det.x2 as f64 / cw,
+                    det.y2 as f64 / ch,
+                );
+                // Ralative width and height
+                let (rw, rh) = (rx2 - rx1, ry2 - ry1);
+                let crop = img.crop(
+                    (ow * rx1) as u32,
+                    (oh * ry1) as u32,
+                    (ow * rw) as u32,
+                    (oh * rh) as u32,
+                );
+                // Validate
+                if det.cls == 0 && crop.height() > 10 && crop.width() > 10 {
+                    // Save the crop image to the specified file path.
+                    let _save_res = crop.save(property.path.img.crop.clone());
+                    let ocr_dets =
+                        self.infer(property.path.img.crop.clone().as_str(), SessionType::Ocr);
+                    // Collect detected digits
+                    let mut digits = vec![];
+                    for ocr_det in ocr_dets {
+                        digits.push(ocr_det.cls as u8);
+                    }
+                    new_dets[i].ids = digits;
+                    // if let Some(id) = ocr_dets.first() {
+                    //     new_dets[i].id = id.cls as i8;
+                    // }
+                }
+            }
+            new_dets
+        }
     }
 
     #[warn(clippy::manual_retain)]
@@ -197,6 +263,7 @@ pub mod onnx {
             let x2 = (xc + w as f32 / 2.0) as u32;
             let y1 = (yc - h as f32 / 2.0) as u32;
             let y2 = (yc + h as f32 / 2.0) as u32;
+            let ids: Vec<u8> = vec![];
             bboxes.push(super::Detection {
                 x1,
                 y1,
@@ -208,6 +275,7 @@ pub mod onnx {
                 prob,
                 w,
                 h,
+                ids,
             })
         }
         bboxes.sort_by(|box1, box2| box2.prob.total_cmp(&box1.prob));
@@ -240,13 +308,13 @@ pub mod onnx {
             if used[i] {
                 continue;
             }
-            let mut merged_bbox = bboxes[i];
+            let mut merged_bbox = bboxes[i].clone();
             used[i] = true;
             for j in 0..bboxes.len() {
                 if used[j] || bboxes[i].cls != bboxes[j].cls {
                     continue;
                 }
-                if iou(bboxes[i], bboxes[j]) >= 0.7 {
+                if iou(bboxes[i].clone(), bboxes[j].clone()) >= 0.7 {
                     let x1 = merged_bbox.x1.min(bboxes[j].x1);
                     let y1 = merged_bbox.y1.min(bboxes[j].y1);
                     let x2 = merged_bbox.x2.max(bboxes[j].x2);
@@ -255,6 +323,7 @@ pub mod onnx {
                     let h = y2 - y1;
                     let xc = x1 as f32 + w as f32 / 2.0;
                     let yc = y1 as f32 + h as f32 / 2.0;
+                    let ids = vec![];
 
                     merged_bbox = Detection {
                         x1,
@@ -267,6 +336,7 @@ pub mod onnx {
                         prob: merged_bbox.prob,
                         w,
                         h,
+                        ids,
                     };
                     used[j] = true;
                 }
@@ -315,7 +385,7 @@ impl FilterClass for RoktrackClasses {
 }
 /// Detection result
 ///
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Detection {
     pub x1: u32,
     pub y1: u32,
@@ -327,6 +397,7 @@ pub struct Detection {
     pub prob: f32,
     pub w: u32,
     pub h: u32,
+    pub ids: Vec<u8>,
 }
 /// Detection default method.
 ///
@@ -352,6 +423,7 @@ impl Detection {
             prob: 0.0,
             w: 0,
             h: 0,
+            ids: vec![],
         }
     }
 }
@@ -401,6 +473,8 @@ pub mod sort {
 
 #[cfg(test)]
 mod tests {
+    use crate::module::util::init::resource;
+
     use super::*;
 
     #[test]
@@ -417,6 +491,7 @@ mod tests {
             prob: 0.95,
             w: 10,
             h: 10,
+            ids: vec![],
         };
         // left top big
         let d1 = Detection {
@@ -430,6 +505,7 @@ mod tests {
             prob: 0.85,
             w: 10,
             h: 15,
+            ids: vec![],
         };
         // right bottom small
         let d2 = Detection {
@@ -443,32 +519,35 @@ mod tests {
             prob: 0.75,
             w: 10,
             h: 5,
+            ids: vec![],
         };
-        let mut dets = [d0, d1, d2];
-        let right = sort::right(&mut dets)[0];
+        let mut dets = [d0.clone(), d1.clone(), d2.clone()];
+        let right = sort::right(&mut dets).first().unwrap().clone();
         assert_eq!(right, d2.clone());
-        let left = sort::left(&mut dets)[0];
+        let left = sort::left(&mut dets).first().unwrap().clone();
         assert_eq!(left, d1.clone());
-        let top = sort::top(&mut dets)[0];
+        let top = sort::top(&mut dets).first().unwrap().clone();
         assert_eq!(top, d1.clone());
-        let bottom = sort::bottom(&mut dets)[0];
+        let bottom = sort::bottom(&mut dets).first().unwrap().clone();
         assert_eq!(bottom, d2.clone());
-        let small = sort::small(&mut dets)[0];
+        let small = sort::small(&mut dets).first().unwrap().clone();
         assert_eq!(small, d2.clone());
-        let big: Detection = sort::big(&mut dets)[0];
+        let big: Detection = sort::big(&mut dets).first().unwrap().clone();
         assert_eq!(big, d1.clone());
     }
 
     #[test]
     fn any_detect_test() {
-        let detector = onnx::YoloV8::new();
+        let property = resource::init();
+        let detector = onnx::YoloV8::new(property.conf);
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
         assert!(!dets.is_empty());
     }
 
     #[test]
     fn pylon_detect_test() {
-        let detector = onnx::YoloV8::new();
+        let property = resource::init();
+        let detector = onnx::YoloV8::new(property.conf);
         let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
         let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON);
         assert_eq!(dets.len(), 2);
