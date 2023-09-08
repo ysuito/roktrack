@@ -229,7 +229,7 @@ pub enum ChildMsg {
     Ack,
     PersonFoundWarn,
     AnimalFound,
-    None,
+    Unknown,
 }
 
 impl ChildMsg {
@@ -254,7 +254,7 @@ impl ChildMsg {
             14 => ChildMsg::Ack,
             15 => ChildMsg::PersonFoundWarn,
             16 => ChildMsg::AnimalFound,
-            _ => ChildMsg::None,
+            _ => ChildMsg::Unknown,
         }
     }
 
@@ -303,7 +303,7 @@ pub enum ParentMsg {
     MonitorAnimal,
     RoundTrip,
     FollowPerson,
-    None,
+    Unknown,
 }
 
 impl ParentMsg {
@@ -326,7 +326,7 @@ impl ParentMsg {
             13 => ParentMsg::MonitorPerson,
             14 => ParentMsg::MonitorAnimal,
             15 => ParentMsg::RoundTrip,
-            _ => ParentMsg::None,
+            _ => ParentMsg::Unknown,
         }
     }
 }

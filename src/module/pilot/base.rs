@@ -480,15 +480,23 @@ pub fn proceed(
 
     // Adjust motor outputs based on the difference
     if 0.15 < diff {
+        // Big difference to right
+        // Correct the direction of travel and adjust the power of the drive motor
         device.inner.clone().lock().unwrap().left(100);
         device.inner.clone().lock().unwrap().adjust_power(-val, val);
     } else if 0.03 < diff {
+        // Small difference to right
+        // Adjust the power of the drive motor and proceed
         device.inner.clone().lock().unwrap().adjust_power(-val, val);
         device.inner.clone().lock().unwrap().forward(0);
     } else if diff < -0.15 {
+        // Big difference to left
+        // Correct the direction of travel and adjust the power of the drive motor
         device.inner.clone().lock().unwrap().right(100);
         device.inner.clone().lock().unwrap().adjust_power(val, -val);
     } else if diff < -0.03 {
+        // Small difference to left
+        // Adjust the power of the drive motor and proceed
         device.inner.clone().lock().unwrap().adjust_power(val, -val);
         device.inner.clone().lock().unwrap().forward(0);
     } else {

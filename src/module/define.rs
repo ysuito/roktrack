@@ -42,8 +42,8 @@ pub mod path {
     pub const DIGIT_OCR_96_MODEL: &str = "asset/model/digit_yolov8_nano_fixed_96_96.onnx";
 
     // Animal Detection Model (320x320)
-    pub const ANIMAL_320_MODEL: &str = "";
+    pub const ANIMAL_320_MODEL: &str = "asset/model/animal_yolov8_nano_fixed_320_320.onnx";
 
     // Animal Detection Model (640x640)
-    pub const ANIMAL_640_MODEL: &str = "";
+    pub const ANIMAL_640_MODEL: &str = "asset/model/animal_yolov8_nano_fixed_640_640.onnx";
 }

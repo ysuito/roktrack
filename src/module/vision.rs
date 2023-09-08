@@ -73,9 +73,15 @@ impl RoktrackVision {
                 }
                 Ok(VisionMgmtCommand::On) => (), // If the command is On, do nothing and proceed
                 Ok(VisionMgmtCommand::SwitchSessionPylon) => {
-                    // If the command is SwitchSessionPylon, lock the inner field and update the detector sessions with the pylon sessions
-                    local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_pylon_sessions();
+                    if local_property.conf.vision.ocr {
+                        // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
+                        local_self.lock().unwrap().det.sessions =
+                            detector::onnx::YoloV8::build_pylon_ocr_sessions();
+                    } else {
+                        // If the command is SwitchSessionPylon, lock the inner field and update the detector sessions with the pylon sessions
+                        local_self.lock().unwrap().det.sessions =
+                            detector::onnx::YoloV8::build_pylon_sessions();
+                    }
                 }
                 Ok(VisionMgmtCommand::SwitchSessionPylonOcr) => {
                     // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
