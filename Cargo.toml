@@ -17,10 +17,7 @@ serde = { version = "1.0.104", features = ["derive"] }
 toml = "0.7.6"
 soloud = "1.0.5"
 chrono = "0.4.26"
-# btleplug = "0.11.0"
-# futures = "0.3.28"
 rand = "0.8.5"
-# tokio = { version = "1.31.0", features = ["rt"] }
 uuid = "1.4.1"
 bitreader = "0.3.7"
 rppal = "0.14.1"
@@ -28,5 +25,8 @@ rscam = "0.5.5"
 image = "0.24.7"
 ndarray = "0.15.6"
 ort = "1.15.2"
+btleplug = "0.11.0"
+futures = "0.3.28"
+tokio = { version = "1.31.0", features = ["rt"] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
