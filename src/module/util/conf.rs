@@ -50,8 +50,8 @@ pub mod toml {
     ///
     pub fn save(dir: &str, conf: super::Config) {
         let toml_str = toml::to_string(&conf).unwrap();
-        let path = crate::module::util::path::join(&[dir, define::path::CONF_FILE]);
-        let mut file = File::create(path).unwrap();
+        let path = Path::new(dir).join(define::path::CONF_FILE);
+        let mut file = File::create(path.to_str().unwrap()).unwrap();
         file.write_all(toml_str.as_bytes()).unwrap();
     }
 }

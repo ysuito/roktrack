@@ -13,14 +13,11 @@ use std::{
 
 // Import the Detection type from the detector submodule
 use self::detector::Detection;
-
 // Import the RoktrackProperty type from the init submodule in the util module
 use super::util::init::RoktrackProperty;
 
-// Declare the camera submodule
-pub mod camera;
-// Declare the detector submodule
-pub mod detector;
+pub mod camera; // Declare the camera submodule
+pub mod detector; // Declare the detector submodule
 
 /// This enum defines the commands that can be used to control the vision thread.
 pub enum VisionMgmtCommand {
@@ -62,10 +59,10 @@ impl RoktrackVision {
         let local_self = self.inner.clone(); // Clone the inner field to avoid borrowing issues
         let local_property = self.property.clone(); // Clone the property field to avoid borrowing issues
 
+        // Spawn a new thread and run an infinite loop
         thread::spawn(move || loop {
             // Wait for a short time before repeating the loop
-            thread::sleep(Duration::from_millis(100));
-            // Spawn a new thread and run an infinite loop
+            thread::sleep(Duration::from_millis(10));
             // Read the management commands from the receiver and match them
             match rx.try_recv() {
                 Ok(VisionMgmtCommand::Off) => {

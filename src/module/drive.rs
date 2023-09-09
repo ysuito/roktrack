@@ -46,9 +46,10 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     let com = BleBroadCast::new();
     let _com_handler = com.listen(channel_neighbor_tx);
 
-    // Initialize the device (not used in this code).
+    // Start the device thread.
     let mut device = crate::module::device::Roktrack::new(property.conf.clone());
     device.run(channel_device_mgmt_rx);
+
     // Initialize the vision module and start the inference thread.
     let vision = RoktrackVision::new(property.clone());
     vision.run(channel_detections_tx, channel_vision_mgmt_rx);
@@ -73,6 +74,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
                 &mut device,
                 channel_vision_mgmt_tx.clone(),
             ) {
+                // If there are new instructions, replace the handler.
                 handler = n;
             }
         }
@@ -88,15 +90,16 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             continue;
         }
 
-        // handle
+        // handle driving
         handler.handle(
             &mut state,
             &mut device,
             &mut detections.unwrap(),
             channel_vision_mgmt_tx.clone(),
+            property.clone(),
         );
 
-        // Broadcast the state to neighbors.
+        // Broadcast my state to neighbors.
         let payload = state.dump(&neighbors.clone());
         com.inner
             .clone()
@@ -116,7 +119,7 @@ fn command_handler(
     // Handle commands from the parent (smartphone app).
     if neighbor.identifier == 0 && neighbor.dest == 255 {
         match ParentMsg::from_u8(neighbor.msg) {
-            // Switch the state if states differ between self and parent.
+            // Switch the state if states differ between new state and old state.
             ParentMsg::Off => {
                 if state.state {
                     state.state = false;

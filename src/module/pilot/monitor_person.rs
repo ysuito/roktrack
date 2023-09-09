@@ -7,6 +7,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::RoktrackState,
+    util::init::RoktrackProperty,
     vision::detector::{Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
@@ -30,13 +31,14 @@ impl Default for MonitorPerson {
 }
 
 impl PilotHandler for MonitorPerson {
-    /// Function called from a thread to handle the Monitor Animal Pilot logic
+    /// Function called from a thread to handle the Monitor Person Pilot logic
     fn handle(
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
         detections: &mut [Detection],
         _tx: Sender<VisionMgmtCommand>,
+        _property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
@@ -47,8 +49,8 @@ impl PilotHandler for MonitorPerson {
             return; // Risk exists, continue
         }
 
-        // Check animal exist
-        if !RoktrackClasses::filter(detections, RoktrackClasses::PERSON).is_empty() {
+        // Check prtson exist
+        if !RoktrackClasses::filter(detections, RoktrackClasses::PERSON.to_u32()).is_empty() {
             log::warn!("Person Detected!!");
             device
                 .inner

@@ -1,7 +1,10 @@
 //! This module defines the main functionality of Roktrack, a marker-guided robotic mower.
 
-pub mod module; // Import the module submodule that contains other modules
-use crate::module::define; // Import the define module that contains constants and types
+pub mod module;
+use std::path::Path;
+
+// Import the module submodule that contains other modules
+use crate::module::define; // Import the define module that contains constants
 use crate::module::util::init::resource::init; // Import the resource initialization function
 
 // The main function of Roktrack
@@ -39,7 +42,6 @@ pub fn main() {
 /// log::error!("Error Message"); // Log an error message
 /// ```
 fn init_log(dir: &str, name: &str) {
-    use crate::module::util::path::join; // Import the join function from the path module
     use log::LevelFilter; // Import the LevelFilter enum from the log crate
     use log4rs::append::file::FileAppender; // Import the FileAppender struct from the log4rs crate
     use log4rs::config::{Appender, Config, Root}; // Import the Appender, Config, and Root structs from the log4rs crate
@@ -50,19 +52,18 @@ fn init_log(dir: &str, name: &str) {
             // Set the encoder to a new PatternEncoder with a custom format
             "{h({d} - {l}: {m}{n})}",
         )))
-        .build(join(&[
-            // Build the FileAppender with the joined path of the directory, the log directory, and the name
-            dir,
-            define::path::LOG_DIR,
-            &format!("{}.log", name),
-        ]))
-        .unwrap(); // Unwrap the result or panic if there is an error
+        .build(
+            Path::new(dir)
+                .join(define::path::LOG_DIR)
+                .join(format!("{}.log", name)),
+        )
+        .expect("Log file initialization error"); // Unwrap the result or panic if there is an error
 
     let config = Config::builder() // Create a new Config builder
         .appender(Appender::builder().build("logfile", Box::new(logfile))) // Add an appender with the name "logfile" and the FileAppender as a boxed trait object
         .build(Root::builder().appender("logfile").build(LevelFilter::Info)) // Build the Config with a Root that uses the "logfile" appender and has a level filter of Info
-        .unwrap(); // Unwrap the result or panic if there is an error
-    log4rs::init_config(config).unwrap(); // Initialize the logger system with the Config or panic if there is an error
+        .expect("Log config initialization error"); // Unwrap the result or panic if there is an error
+    log4rs::init_config(config).expect("Log initialization error"); // Initialize the logger system with the Config or panic if there is an error
 }
 
 #[cfg(test)]

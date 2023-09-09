@@ -8,6 +8,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::{Phase, RoktrackState},
+    util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
@@ -34,6 +35,7 @@ impl PilotHandler for OneWay {
         device: &mut Roktrack,
         detections: &mut [Detection],
         tx: Sender<VisionMgmtCommand>,
+        _property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
@@ -117,9 +119,9 @@ enum VisionRisk {
 /// Identify vision-related risks
 ///
 fn assess_vision_risk(dets: &mut [Detection]) -> VisionRisk {
-    if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON).is_empty() {
+    if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON.to_u32()).is_empty() {
         VisionRisk::PersonDetected
-    } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK).is_empty() {
+    } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK.to_u32()).is_empty() {
         VisionRisk::RoktrackDetected
     } else {
         VisionRisk::None

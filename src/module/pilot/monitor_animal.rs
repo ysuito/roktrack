@@ -4,8 +4,8 @@ use std::sync::mpsc::Sender;
 
 use super::PilotHandler;
 use crate::module::{
-    device::Roktrack, pilot::base, pilot::RoktrackState, vision::detector::Detection,
-    vision::VisionMgmtCommand,
+    device::Roktrack, pilot::base, pilot::RoktrackState, util::init::RoktrackProperty,
+    vision::detector::Detection, vision::VisionMgmtCommand,
 };
 
 pub struct MonitorAnimal {
@@ -34,6 +34,7 @@ impl PilotHandler for MonitorAnimal {
         device: &mut Roktrack,
         detections: &mut [Detection],
         _tx: Sender<VisionMgmtCommand>,
+        _property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {

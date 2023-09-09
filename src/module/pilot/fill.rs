@@ -38,11 +38,12 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::{Phase, RoktrackState},
+    util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
 
-use super::PilotHandler;
+use super::{base::select_marker, PilotHandler};
 
 #[derive(Clone, Copy)]
 pub struct Fill {}
@@ -66,6 +67,7 @@ impl PilotHandler for Fill {
         device: &mut Roktrack,
         detections: &mut [Detection],
         tx: Sender<VisionMgmtCommand>,
+        property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
@@ -93,7 +95,7 @@ impl PilotHandler for Fill {
         };
 
         // Get the first detected marker or a default one
-        let marker = detections.first().cloned().unwrap_or_default();
+        let marker = select_marker(property, state, detections, device);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
@@ -151,9 +153,9 @@ enum VisionRisk {
 /// Identify vision-related risks
 ///
 fn assess_vision_risk(dets: &mut [Detection]) -> VisionRisk {
-    if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON).is_empty() {
+    if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON.to_u32()).is_empty() {
         VisionRisk::PersonDetected
-    } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK).is_empty() {
+    } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK.to_u32()).is_empty() {
         VisionRisk::RoktrackDetected
     } else {
         VisionRisk::None

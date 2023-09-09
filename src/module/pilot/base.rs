@@ -5,7 +5,7 @@ use std::sync::mpsc::Sender;
 use std::thread;
 use std::time;
 
-// use crate::module::com::ChildMsg;
+use crate::module::com::ChildMsg;
 use crate::module::device::Chassis;
 use crate::module::device::Roktrack;
 use crate::module::pilot::RoktrackState;
@@ -80,7 +80,7 @@ pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Option<()> {
 /// An `Option<()>` where `Some(())` indicates success.
 pub fn halt(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
     state.state = false;
-    // state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
+    state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
     device.inner.clone().lock().unwrap().stop();
     device.inner.clone().lock().unwrap().speak("cone_not_found");
     Some(())
@@ -148,7 +148,7 @@ pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
 /// An `Option<()>` where `Some(())` indicates success.
 pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
     // Notify that the target is lost
-    // state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
+    state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
     // Reset the expected height to 110% of the image height
     state.ex_height = (state.img_height as f32 * 1.1) as u16;
     // Adjust the turn direction based on the current phase
@@ -170,15 +170,15 @@ pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Opti
 /// # Arguments
 ///
 /// * `cur_constant` - The current constant value.
-/// * `cam_height` - The height of the camera image.
+/// * `img_height` - The height of the image used for detection.
 /// * `marker_height` - The height of the marker detected.
 ///
 /// # Returns
 ///
 /// The calculated constant value.
-pub fn calc_constant(cur_constant: f32, cam_height: u32, marker_height: u32) -> f32 {
+pub fn calc_constant(cur_constant: f32, img_height: u32, marker_height: u32) -> f32 {
     if cur_constant == 0.0 {
-        let marker_share = marker_height as f32 / cam_height as f32;
+        let marker_share = marker_height as f32 / img_height as f32;
         if 0.1 * marker_share < 0.005 {
             0.1 * marker_share
         } else {
@@ -282,7 +282,7 @@ pub fn set_new_target(
     marker: Detection,
 ) -> Option<()> {
     // Notify that a new target is found
-    // state.msg = ChildMsg::to_u8(ChildMsg::NewTargetFound);
+    state.msg = ChildMsg::to_u8(ChildMsg::NewTargetFound);
     // Speak a notification
     device.inner.clone().lock().unwrap().speak("new_cone_found");
     // Subtract the rest value
@@ -312,7 +312,7 @@ pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Option
     // Transition to higher resolution
     upscale(state, tx);
     // Send "target lost" message
-    // state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
+    state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
     // Reset the turn count
     state.turn_count = 0;
     Some(())
@@ -375,7 +375,7 @@ pub fn reach_marker(
     // Clear the target height
     state.target_height = 0;
     // Send "reach target" message
-    // state.msg = ChildMsg::to_u8(ChildMsg::ReachTarget);
+    state.msg = ChildMsg::to_u8(ChildMsg::ReachTarget);
     // Speak a "close to cone" notification
     device.inner.clone().lock().unwrap().speak("close_to_cone");
     // Start the next turn in the specified direction

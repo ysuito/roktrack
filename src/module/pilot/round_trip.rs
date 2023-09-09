@@ -7,6 +7,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::RoktrackState,
+    util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
@@ -37,6 +38,7 @@ impl PilotHandler for RoundTrip {
         device: &mut Roktrack,
         detections: &mut [Detection],
         tx: Sender<VisionMgmtCommand>,
+        _property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
@@ -48,14 +50,14 @@ impl PilotHandler for RoundTrip {
             return; // Risk exists, continue
         }
 
-        // Sort markers based on the current phase
+        // Sort markers based on the current target object
         let detections = sort::big(detections);
         let detections = match self.target_object {
             RoundTripObject::Marker => {
-                RoktrackClasses::filter(&mut detections.clone(), RoktrackClasses::PYLON)
+                RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PYLON).to_u32())
             }
             RoundTripObject::Person => {
-                RoktrackClasses::filter(&mut detections.clone(), RoktrackClasses::PERSON)
+                RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PERSON).to_u32())
             }
         };
 

@@ -1,4 +1,4 @@
-//! Camera Functions
+//! Camera Modules
 //!
 
 use rscam::{Camera, Config};

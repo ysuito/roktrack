@@ -9,6 +9,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::RoktrackState,
+    util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
@@ -35,6 +36,7 @@ impl PilotHandler for FollowPerson {
         device: &mut Roktrack,
         detections: &mut [Detection],
         tx: Sender<VisionMgmtCommand>,
+        _property: RoktrackProperty,
     ) {
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
@@ -48,7 +50,8 @@ impl PilotHandler for FollowPerson {
 
         // Sort markers based on the current phase
         let detections = sort::big(detections);
-        let detections = RoktrackClasses::filter(&mut detections.clone(), RoktrackClasses::PERSON);
+        let detections =
+            RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PERSON).to_u32());
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();

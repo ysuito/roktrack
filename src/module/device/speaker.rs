@@ -51,12 +51,11 @@ pub fn play(file: &str) {
 /// # Example
 ///
 /// ```
-/// use roktracklib::module::device::speaker::speak;
 /// speak("start_mowing");
 /// ```
 pub fn speak(name: &str) {
-    let path = crate::module::util::path::join(&["./asset/audio/ja/", &format!("{name}.mp3")]);
-    play(path.as_str())
+    let path = Path::new("./asset/audio/ja/").join(format!("{name}.mp3"));
+    play(path.to_str().unwrap())
 }
 
 /// Logger functions for speaking audio messages based on log levels.
@@ -73,9 +72,8 @@ pub mod logger {
     /// # Example
     ///
     /// ```
-    /// use roktracklib::module::device::speaker::logger::debug;
-    /// assert!(debug("start_mowing", "DEBUG"));
-    /// assert_eq!(debug("start_mowing", "INFO"), false);
+    /// assert!(logger::debug("start_mowing", "DEBUG"));
+    /// assert_eq!(logger::debug("start_mowing", "INFO"), false);
     /// ```
     pub fn debug(name: &str, level: &str) -> bool {
         if ["DEBUG"].contains(&level) {
@@ -96,9 +94,8 @@ pub mod logger {
     /// # Example
     ///
     /// ```
-    /// use roktracklib::module::device::speaker::logger::info;
-    /// assert!(info("start_mowing", "INFO"));
-    /// assert_eq!(info("start_mowing", "WARNING"), false);
+    /// assert!(logger::info("start_mowing", "INFO"));
+    /// assert_eq!(logger::info("start_mowing", "WARNING"), false);
     /// ```
     pub fn info(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO"].contains(&level) {
@@ -119,9 +116,8 @@ pub mod logger {
     /// # Example
     ///
     /// ```
-    /// use roktracklib::module::device::speaker::logger::warn;
-    /// assert!(warn("start_mowing", "WARN"));
-    /// assert_eq!(warn("start_mowing", "ERROR"), false);
+    /// assert!(logger::warn("start_mowing", "WARN"));
+    /// assert_eq!(logger::warn("start_mowing", "ERROR"), false);
     /// ```
     pub fn warn(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO", "WARN"].contains(&level) {
@@ -142,9 +138,8 @@ pub mod logger {
     /// # Example
     ///
     /// ```
-    /// use roktracklib::module::device::speaker::logger::error;
-    /// assert!(error("start_mowing", "ERROR"));
-    /// assert!(error("start_mowing", "DEBUG"));
+    /// assert!(logger::error("start_mowing", "ERROR"));
+    /// assert!(logger::error("start_mowing", "DEBUG"));
     /// ```
     pub fn error(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO", "WARN", "ERROR"].contains(&level) {

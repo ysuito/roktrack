@@ -5,20 +5,19 @@ pub mod base; // Base module
 pub mod fill; // Fill module
 pub mod follow_person; // Follow person module
 pub mod monitor_animal; // Monitoring animal module
-pub mod monitor_person;
+pub mod monitor_person; // Monitoring person module
 pub mod oneway; // One-way module
-pub mod round_trip; // Round-trip between person and marker module // Monitoring person module
-
-use std::sync::mpsc::Sender;
-
-use super::com::Neighbor; // Import the Neighbor type from the com module
-use rand::{self, seq::SliceRandom, Rng};
-use std::collections::HashMap; // Import HashMap for storage // Import random number generation
+pub mod round_trip; // Round-trip between person and marker module
 
 use super::{
+    com::Neighbor, // Import the Neighbor type from the com module
     device::Roktrack,
+    util::init::RoktrackProperty,
     vision::{detector::Detection, VisionMgmtCommand},
-}; // Import random number generation
+};
+use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
+use std::collections::HashMap;
+use std::sync::mpsc::Sender; // Import HashMap for storage
 
 /// Automatic operation modes.
 #[derive(Debug, Clone, PartialEq)]
@@ -212,6 +211,7 @@ pub trait PilotHandler: Send + Sync {
         device: &mut Roktrack,
         detections: &mut [Detection],
         tx: Sender<VisionMgmtCommand>,
+        property: RoktrackProperty,
     ) {
     }
 }

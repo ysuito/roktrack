@@ -118,7 +118,7 @@ pub mod onnx {
                 sz640: Self::get_session("animal_sz640", define::path::ANIMAL_640_MODEL),
             }
         }
-        /// do inference
+        /// Infer
         ///
         pub fn infer(&self, impath: &str, session_type: SessionType) -> Vec<super::Detection> {
             let sz = session_type.get_imgsz();
@@ -184,15 +184,13 @@ pub mod onnx {
             // For result
             let mut new_dets = dets.clone();
 
-            // Picture weights and heights
-            // Resolution for detection
-            let (cw, ch) = match self.session_type {
+            // Resolution of the image used for detection
+            let (iw, ih) = match self.session_type {
                 SessionType::Sz320 => (320.0, 320.0),
                 SessionType::Sz640 => (640.0, 640.0),
                 _ => (0.0, 0.0),
             };
             // Original resolution
-
             let (ow, oh) = (
                 property.conf.camera.width as f64,
                 property.conf.camera.height as f64,
@@ -203,13 +201,14 @@ pub mod onnx {
             for (i, det) in dets.iter().enumerate() {
                 // Get the relative position of bbox
                 let (rx1, ry1, rx2, ry2) = (
-                    det.x1 as f64 / cw,
-                    det.y1 as f64 / ch,
-                    det.x2 as f64 / cw,
-                    det.y2 as f64 / ch,
+                    det.x1 as f64 / iw,
+                    det.y1 as f64 / ih,
+                    det.x2 as f64 / iw,
+                    det.y2 as f64 / ih,
                 );
                 // Ralative width and height
                 let (rw, rh) = (rx2 - rx1, ry2 - ry1);
+                // Crop original image by ratio
                 let crop = img.crop(
                     (ow * rx1) as u32,
                     (oh * ry1) as u32,
@@ -228,9 +227,6 @@ pub mod onnx {
                         digits.push(ocr_det.cls as u8);
                     }
                     new_dets[i].ids = digits;
-                    // if let Some(id) = ocr_dets.first() {
-                    //     new_dets[i].id = id.cls as i8;
-                    // }
                 }
             }
             new_dets
@@ -350,7 +346,7 @@ pub mod onnx {
 /// A trait for filtering detection results by class
 ///
 pub trait FilterClass {
-    fn filter(dets: &mut [Detection], cls: RoktrackClasses) -> Vec<Detection>;
+    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection>;
 }
 
 /// Roktrack base model's classes
@@ -372,17 +368,90 @@ impl RoktrackClasses {
             _ => None,
         }
     }
+    pub fn to_u32(&self) -> u32 {
+        match self {
+            RoktrackClasses::PYLON => 0,
+            RoktrackClasses::PERSON => 1,
+            RoktrackClasses::ROKTRACK => 2,
+        }
+    }
 }
 /// Filter By Class
 ///
 impl FilterClass for RoktrackClasses {
-    fn filter(dets: &mut [Detection], cls: RoktrackClasses) -> Vec<Detection> {
+    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection> {
         dets.iter()
             .cloned()
-            .filter(|i| RoktrackClasses::from_u32(i.cls).unwrap() == cls)
+            .filter(|det| det.cls == cls_id)
             .collect::<Vec<_>>()
     }
 }
+
+/// Animal model's classes
+///
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnimalClasses {
+    BEAR,
+    DEER,
+    MONKEY,
+    BOAR,
+    BADGER,
+    CAT,
+    CIVET,
+    DOG,
+    FOX,
+    HARE,
+    RACOON,
+    SQUIRREL,
+}
+/// AnimalClasses methods
+///
+impl AnimalClasses {
+    pub fn from_u32(i: u32) -> Option<AnimalClasses> {
+        match i {
+            0 => Some(AnimalClasses::BEAR),
+            1 => Some(AnimalClasses::DEER),
+            2 => Some(AnimalClasses::MONKEY),
+            3 => Some(AnimalClasses::BOAR),
+            4 => Some(AnimalClasses::BADGER),
+            5 => Some(AnimalClasses::CAT),
+            6 => Some(AnimalClasses::CIVET),
+            7 => Some(AnimalClasses::DOG),
+            8 => Some(AnimalClasses::FOX),
+            9 => Some(AnimalClasses::HARE),
+            10 => Some(AnimalClasses::RACOON),
+            11 => Some(AnimalClasses::SQUIRREL),
+            _ => None,
+        }
+    }
+    pub fn to_u32(&self) -> u32 {
+        match self {
+            AnimalClasses::BEAR => 0,
+            AnimalClasses::DEER => 1,
+            AnimalClasses::MONKEY => 2,
+            AnimalClasses::BOAR => 3,
+            AnimalClasses::BADGER => 4,
+            AnimalClasses::CAT => 5,
+            AnimalClasses::CIVET => 6,
+            AnimalClasses::DOG => 7,
+            AnimalClasses::FOX => 8,
+            AnimalClasses::HARE => 9,
+            AnimalClasses::RACOON => 10,
+            AnimalClasses::SQUIRREL => 11,
+        }
+    }
+}
+/// Filter By Class
+///
+impl FilterClass for AnimalClasses {
+    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection> {
+        dets.iter()
+            .cloned()
+            .filter(|det| det.cls == cls_id)
+            .collect::<Vec<_>>()
+    }
+}
+
 /// Detection result
 ///
 #[derive(Debug, Clone, PartialEq)]
@@ -549,10 +618,10 @@ mod tests {
         let property = resource::init();
         let detector = onnx::YoloV8::new(property.conf);
         let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
-        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON);
+        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON.to_u32());
         assert_eq!(dets.len(), 2);
         let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640);
-        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON);
+        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON.to_u32());
         assert_eq!(dets.len(), 2);
     }
 }
