@@ -38,6 +38,7 @@ impl PilotHandler for FollowPerson {
         tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
+        log::debug!("Start FollowPerson Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
             SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
@@ -45,6 +46,7 @@ impl PilotHandler for FollowPerson {
             SystemRisk::None => None,
         };
         if system_risk.is_some() {
+            log::debug!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -55,9 +57,13 @@ impl PilotHandler for FollowPerson {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        log::debug!("Marker Selected: {:?}", marker);
+
+        let action = assess_situation(state, &marker);
+        log::debug!("Action is {:?}", action);
 
         // Handle the current phase
-        match assess_situation(state, &marker) {
+        match action {
             ActPhase::TurnCountExceeded => base::halt(state, device),
             ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
             ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
@@ -67,12 +73,14 @@ impl PilotHandler for FollowPerson {
             ActPhase::Stand => base::stand(state, tx),
             ActPhase::StartTurn => base::start_turn(state, device),
             ActPhase::ReachMarker => {
+                log::debug!("Reach Marker pausing.");
                 device.inner.lock().unwrap().pause();
                 Some(())
             }
             ActPhase::Proceed => base::proceed(state, device, marker, tx),
             ActPhase::None => None,
         };
+        log::debug!("End FollowPerson Handle");
     }
 }
 

@@ -380,10 +380,12 @@ impl RoktrackClasses {
 ///
 impl FilterClass for RoktrackClasses {
     fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection> {
-        dets.iter()
+        let filtered_dets = dets
+            .iter()
             .cloned()
             .filter(|det| det.cls == cls_id)
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        filtered_dets
     }
 }
 

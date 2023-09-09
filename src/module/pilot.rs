@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender; // Import HashMap for storage
 
 /// Automatic operation modes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum Modes {
     Fill,
     OneWay,
@@ -34,6 +34,21 @@ pub enum Modes {
 }
 
 impl Modes {
+    /// Convert an string to an operation mode.
+    pub fn from_string(s: &str) -> Modes {
+        match s {
+            "fill" => Modes::Fill,
+            "oneway" => Modes::OneWay,
+            "climb" => Modes::Climb,
+            "around" => Modes::Around,
+            "monitor_animal" => Modes::MonitorAnimal,
+            "monitor_person" => Modes::MonitorPerson,
+            "round_trip" => Modes::RoundTrip,
+            "follow_person" => Modes::FollowPerson,
+            _ => Modes::Unknown,
+        }
+    }
+
     /// Convert an integer to an operation mode.
     pub fn from_u8(i: u8) -> Modes {
         match i {
@@ -155,14 +170,15 @@ impl RoktrackState {
         let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap() as u8;
         // Construct the payload
         let mut val = vec![
-            state_and_rest,                  // State and rest
-            self.pi_temp as u8,              // Pi temperature
-            Modes::to_u8(self.mode.clone()), // Mode as int
-            self.msg,                        // Message
-            255,                             // Destination
+            state_and_rest,          // State and rest
+            self.pi_temp as u8,      // Pi temperature
+            Modes::to_u8(self.mode), // Mode as int
+            self.msg,                // Message
+            255,                     // Destination
         ];
         // Padding
         val.resize(23, 0);
+        log::debug!("Dump My State: {:?}", val);
         val
     }
 }

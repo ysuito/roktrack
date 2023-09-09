@@ -37,6 +37,7 @@ impl PilotHandler for OneWay {
         tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
+        log::debug!("Start OneWay Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
             SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
@@ -44,6 +45,7 @@ impl PilotHandler for OneWay {
             SystemRisk::None => None,
         };
         if system_risk.is_some() {
+            log::debug!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -53,6 +55,7 @@ impl PilotHandler for OneWay {
             VisionRisk::None => None,
         };
         if vision_risk.is_some() {
+            log::debug!("Vision Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -67,12 +70,16 @@ impl PilotHandler for OneWay {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        log::debug!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
 
+        let action = assess_situation(state, &marker);
+        log::debug!("Action is {:?}", action);
+
         // Handle the current phase
-        match assess_situation(state, &marker) {
+        match action {
             ActPhase::TurnCountExceeded => base::halt(state, device),
             ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
             ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
@@ -83,6 +90,7 @@ impl PilotHandler for OneWay {
             ActPhase::Proceed => base::proceed(state, device, marker, tx),
             ActPhase::None => None,
         };
+        log::debug!("End OneWay Handle");
     }
 }
 

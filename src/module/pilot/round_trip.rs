@@ -40,6 +40,7 @@ impl PilotHandler for RoundTrip {
         tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
+        log::debug!("Start RoundTrip Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
             SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
@@ -47,6 +48,7 @@ impl PilotHandler for RoundTrip {
             SystemRisk::None => None,
         };
         if system_risk.is_some() {
+            log::debug!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -63,9 +65,13 @@ impl PilotHandler for RoundTrip {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        log::debug!("Marker Selected: {:?}", marker);
+
+        let action = assess_situation(state, &marker);
+        log::debug!("Action is {:?}", action);
 
         // Handle the current phase
-        match assess_situation(state, &marker) {
+        match action {
             ActPhase::TurnCountExceeded => base::halt(state, device),
             ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
             ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
@@ -74,14 +80,21 @@ impl PilotHandler for RoundTrip {
             ActPhase::StartTurn => base::start_turn(state, device),
             ActPhase::ReachMarker => {
                 self.target_object = match self.target_object {
-                    RoundTripObject::Marker => RoundTripObject::Person,
-                    RoundTripObject::Person => RoundTripObject::Marker,
+                    RoundTripObject::Marker => {
+                        log::debug!("Target Object Switch. Marker -> Person");
+                        RoundTripObject::Person
+                    }
+                    RoundTripObject::Person => {
+                        log::debug!("Target Object Switch. Person -> Marker");
+                        RoundTripObject::Marker
+                    }
                 };
                 base::reach_marker(state, device, marker)
             }
             ActPhase::Proceed => base::proceed(state, device, marker, tx),
             ActPhase::None => None,
         };
+        log::debug!("End RoundTrip Handle");
     }
 }
 

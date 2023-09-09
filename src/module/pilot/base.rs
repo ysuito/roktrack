@@ -83,6 +83,7 @@ pub fn halt(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
     state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
     device.inner.clone().lock().unwrap().stop();
     device.inner.clone().lock().unwrap().speak("cone_not_found");
+    log::warn!("Halted!");
     Some(())
 }
 
@@ -107,6 +108,14 @@ pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
     state.img_width = new_width as u32;
     state.ex_height = (state.ex_height as f32 * ratio) as u16;
     state.target_height = (state.target_height as f32 * ratio) as u16;
+    log::debug!(
+        "UpScaled. ih:{}, iw:{}, eh:{}, th:{}, ratio:{}",
+        state.img_height,
+        state.img_width,
+        state.ex_height,
+        state.target_height,
+        ratio,
+    );
 }
 
 /// Decrease the image resolution and adjust state.
@@ -130,6 +139,14 @@ pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
     state.img_width = new_width as u32;
     state.ex_height = (state.ex_height as f32 * ratio) as u16;
     state.target_height = (state.target_height as f32 * ratio) as u16;
+    log::debug!(
+        "DownScaled. ih:{}, iw:{}, eh:{}, th:{}, ratio:{}",
+        state.img_height,
+        state.img_width,
+        state.ex_height,
+        state.target_height,
+        ratio,
+    );
 }
 
 /// Reset the last seen height (`ex_height`) and turn direction when the marker is lost.
@@ -158,6 +175,11 @@ pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Opti
     };
     // Increment the turn count
     state.turn_count += 1;
+    log::debug!(
+        "Reset Ex Height. ex_height: {}, turn_count: {}",
+        state.ex_height,
+        state.turn_count,
+    );
     Some(())
 }
 
@@ -180,8 +202,14 @@ pub fn calc_constant(cur_constant: f32, img_height: u32, marker_height: u32) -> 
     if cur_constant == 0.0 {
         let marker_share = marker_height as f32 / img_height as f32;
         if 0.1 * marker_share < 0.005 {
+            log::debug!(
+                "New Constant: {}, marker_share:{} ",
+                0.1 * marker_share,
+                marker_share
+            );
             0.1 * marker_share
         } else {
+            log::debug!("New Constant: {}, marker_share:{} ", 0.005, marker_share);
             0.005
         }
     } else {
@@ -206,6 +234,7 @@ pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Option<
     state.invert_phase();
     // Pause the Roktrack's movement
     device.inner.clone().lock().unwrap().pause();
+    log::debug!("Phase Inverted. Pausing... new_phase: {:?}", state.phase);
     Some(())
 }
 
@@ -226,6 +255,7 @@ pub fn mission_complete(state: &mut RoktrackState, device: &mut Roktrack) -> Opt
     state.state = false;
     // Stop the Roktrack's movement
     device.inner.clone().lock().unwrap().stop();
+    log::debug!("Mission Completed!");
     Some(())
 }
 
@@ -259,6 +289,7 @@ pub fn keep_turn(
     }
     // Increment the turn count
     state.turn_count += 1;
+    log::debug!("Keep Turning. turn_count: {}", state.turn_count);
     Some(())
 }
 
@@ -293,6 +324,12 @@ pub fn set_new_target(
         as u16;
     // Reset the turn count
     state.turn_count = 0;
+    log::debug!(
+        "Set New Target. rest: {}, target_height: {}, turn_count: {}",
+        state.rest,
+        state.target_height,
+        state.turn_count
+    );
     Some(())
 }
 
@@ -309,6 +346,7 @@ pub fn set_new_target(
 ///
 /// An `Option<()>` where `Some(())` indicates success.
 pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Option<()> {
+    log::debug!("Standing.");
     // Transition to higher resolution
     upscale(state, tx);
     // Send "target lost" message
@@ -343,6 +381,12 @@ pub fn start_turn(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()
     state.ex_height = (state.img_height as f32 * 1.1) as u16;
     // Clear the target height
     state.target_height = 0;
+    log::debug!(
+        "Start Turn. turn_count: {}, ex_height: {}, target_height: {}",
+        state.turn_count,
+        state.ex_height,
+        state.target_height
+    );
     Some(())
 }
 
@@ -383,6 +427,12 @@ pub fn reach_marker(
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
         Phase::CW => device.inner.clone().lock().unwrap().right(500),
     };
+    log::debug!(
+        "Reach Marker. turn_count: {}, ex_height: {}, target_height: {}",
+        state.turn_count,
+        state.ex_height,
+        state.target_height
+    );
     Some(())
 }
 
@@ -439,7 +489,9 @@ fn get_diff(
         Phase::CCW => offset,
         Phase::CW => -offset,
     };
-    (cam_width as f32 / 2.0 - marker_center_x + offset) / cam_width as f32
+    let diff = (cam_width as f32 / 2.0 - marker_center_x + offset) / cam_width as f32;
+    log::debug!("Calculated Diff: {}", diff);
+    diff
 }
 
 /// Proceed to the target marker.
@@ -480,26 +532,31 @@ pub fn proceed(
 
     // Adjust motor outputs based on the difference
     if 0.15 < diff {
+        log::debug!("Left and adjust power. left: {}, right: {}", -val, val);
         // Big difference to right
         // Correct the direction of travel and adjust the power of the drive motor
         device.inner.clone().lock().unwrap().left(100);
         device.inner.clone().lock().unwrap().adjust_power(-val, val);
     } else if 0.03 < diff {
+        log::debug!("Adjust power and forward. left: {}, right: {}", -val, val);
         // Small difference to right
         // Adjust the power of the drive motor and proceed
         device.inner.clone().lock().unwrap().adjust_power(-val, val);
         device.inner.clone().lock().unwrap().forward(0);
     } else if diff < -0.15 {
+        log::debug!("Adjust power and forward. left: {}, right: {}", val, -val);
         // Big difference to left
         // Correct the direction of travel and adjust the power of the drive motor
         device.inner.clone().lock().unwrap().right(100);
         device.inner.clone().lock().unwrap().adjust_power(val, -val);
     } else if diff < -0.03 {
+        log::debug!("Right and adjust power. left: {}, right: {}", val, -val);
         // Small difference to left
         // Adjust the power of the drive motor and proceed
         device.inner.clone().lock().unwrap().adjust_power(val, -val);
         device.inner.clone().lock().unwrap().forward(0);
     } else {
+        log::debug!("Forwarding");
         device.inner.clone().lock().unwrap().forward(0);
     }
 
@@ -510,6 +567,65 @@ pub fn proceed(
     }
 
     Some(())
+}
+
+/// Determine if this marker is eligible for pass-through
+///
+/// If the marker in the foreground is above the target height and another marker exists
+/// to the right of the screen, the marker in the foreground is passed through in case of CCW phase.
+fn determine_pass_through(state: RoktrackState, detections: Vec<Detection>) -> Detection {
+    match detections.len() {
+        0 => Detection::default(),                // No detection
+        1 => detections.first().unwrap().clone(), // The only one
+        2.. => {
+            if detections.first().unwrap().h > state.target_height as u32 {
+                match state.phase {
+                    Phase::CCW => {
+                        if detections.get(1).unwrap().x1 > state.img_width / 3 {
+                            log::debug!(
+                                "Pass-through. det: {}, thr: {}",
+                                detections.get(1).unwrap().x1,
+                                state.img_width / 3
+                            );
+                            // Pass-through
+                            detections.get(1).unwrap().clone()
+                        } else {
+                            log::debug!(
+                                "Normal selection. det: {}, thr: {}",
+                                detections.get(1).unwrap().x1,
+                                state.img_width / 3
+                            );
+                            // Select the marker in the foreground
+                            detections.first().unwrap().clone()
+                        }
+                    }
+                    Phase::CW => {
+                        if detections.get(1).unwrap().x1 < state.img_width * 2 / 3 {
+                            log::debug!(
+                                "Pass-through. det: {}, thr: {}",
+                                detections.get(1).unwrap().x1,
+                                state.img_width * 2 / 3
+                            );
+                            // Pass-through
+                            detections.get(1).unwrap().clone()
+                        } else {
+                            log::debug!(
+                                "Normal selection. det: {}, thr: {}",
+                                detections.get(1).unwrap().x1,
+                                state.img_width * 2 / 3
+                            );
+                            // Select the marker in the foreground
+                            detections.first().unwrap().clone()
+                        }
+                    }
+                }
+            } else {
+                log::debug!("Normal selection. Not Satisfy Target Height.");
+                detections.first().unwrap().clone() // No exceeded markers, so normal operation
+            }
+        }
+        _ => Detection::default(), // No detection
+    }
 }
 
 /// Select one marker from several detected markers
@@ -523,48 +639,10 @@ pub fn select_marker(
     detections: Vec<Detection>,
     device: &mut Roktrack,
 ) -> Detection {
-    /// Determine if this marker is eligible for pass-through
-    ///
-    /// If the marker in the foreground is above the target height and another marker exists
-    /// to the right of the screen, the marker in the foreground is passed through.
-    fn determine_pass_through(state: RoktrackState, detections: Vec<Detection>) -> Detection {
-        match detections.len() {
-            0 => Detection::default(),                // No detection
-            1 => detections.first().unwrap().clone(), // The only one
-            2.. => {
-                if detections.first().unwrap().h > state.target_height as u32 {
-                    match state.phase {
-                        Phase::CCW => {
-                            if detections.get(1).unwrap().x1 > state.img_width / 3 {
-                                // Pass-through
-                                detections.get(1).unwrap().clone()
-                            } else {
-                                // Select the marker in the foreground
-                                detections.first().unwrap().clone()
-                            }
-                        }
-                        Phase::CW => {
-                            if detections.get(1).unwrap().x1 < state.img_width * 2 / 3 {
-                                // Pass-through
-                                detections.get(1).unwrap().clone()
-                            } else {
-                                // Select the marker in the foreground
-                                detections.first().unwrap().clone()
-                            }
-                        }
-                    }
-                } else {
-                    detections.first().unwrap().clone() // No exceeded markers, so normal operation
-                }
-            }
-            _ => Detection::default(), // No detection
-        }
-    }
-
     if property.conf.vision.ocr {
-        if let Some(_previous_marker_id) = state.marker_id {
+        if state.marker_id.is_none() {
             let detection = detections.first().unwrap();
-            if detection.h > 0 && !detection.ids.is_empty() {
+            if !detection.ids.is_empty() {
                 device.inner.lock().unwrap().stop();
                 thread::sleep(time::Duration::from_millis(5000));
                 state.marker_id = detection.ids.first().copied();
@@ -574,8 +652,13 @@ pub fn select_marker(
                     .lock()
                     .unwrap()
                     .speak(format!("target{}", state.marker_id.unwrap()).as_str());
+                log::debug!(
+                    "First Marker Id Found. new_id: {}",
+                    state.marker_id.unwrap()
+                );
                 detection.clone()
             } else {
+                log::debug!("First Marker Id Not Found.");
                 detection.clone()
             }
         } else {
@@ -583,11 +666,16 @@ pub fn select_marker(
             let detections_with_id: Vec<Detection> = detections
                 .iter()
                 .cloned()
-                .filter(|det| !det.ids.is_empty())
+                .filter(|det| det.ids.contains(&state.marker_id.unwrap()))
                 .collect();
+            log::debug!(
+                "Detection With Id. detection_with_id: {:?}",
+                detections_with_id.clone()
+            );
             determine_pass_through(state.clone(), detections_with_id)
         }
     } else {
+        log::debug!("Select Detection Without Ocr");
         // Get the first detected marker or a default one
         detections.first().cloned().unwrap_or_default()
     }

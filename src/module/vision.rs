@@ -63,6 +63,8 @@ impl RoktrackVision {
         thread::spawn(move || loop {
             // Wait for a short time before repeating the loop
             thread::sleep(Duration::from_millis(10));
+
+            log::debug!("Vision Inference Loop Start");
             // Read the management commands from the receiver and match them
             match rx.try_recv() {
                 Ok(VisionMgmtCommand::Off) => {
@@ -70,6 +72,7 @@ impl RoktrackVision {
                 }
                 Ok(VisionMgmtCommand::On) => (), // If the command is On, do nothing and proceed
                 Ok(VisionMgmtCommand::SwitchSessionPylon) => {
+                    log::debug!("Vision VisionMgmtCommand::SwitchSessionPylon Received");
                     if local_property.conf.vision.ocr {
                         // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
                         local_self.lock().unwrap().det.sessions =
@@ -81,21 +84,25 @@ impl RoktrackVision {
                     }
                 }
                 Ok(VisionMgmtCommand::SwitchSessionPylonOcr) => {
+                    log::debug!("Vision VisionMgmtCommand::SwitchSessionPylonOcr Received");
                     // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
                     local_self.lock().unwrap().det.sessions =
                         detector::onnx::YoloV8::build_pylon_ocr_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionAnimal) => {
+                    log::debug!("Vision VisionMgmtCommand::SwitchSessionAnimal Received");
                     // If the command is SwitchSessionAnimal, lock the inner field and update the detector sessions with the animal sessions
                     local_self.lock().unwrap().det.sessions =
                         detector::onnx::YoloV8::build_animal_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSz320) => {
+                    log::debug!("Vision VisionMgmtCommand::SwitchSz320 Received");
                     // If the command is SwitchSz320, lock the inner field and update the detector session type with Sz320
                     local_self.lock().unwrap().det.session_type =
                         detector::onnx::SessionType::Sz320;
                 }
                 Ok(VisionMgmtCommand::SwitchSz640) => {
+                    log::debug!("Vision VisionMgmtCommand::SwitchSz640 Received");
                     // If the command is SwitchSz640, lock the inner field and update the detector session type with Sz640
                     local_self.lock().unwrap().det.session_type =
                         detector::onnx::SessionType::Sz640;
@@ -106,13 +113,16 @@ impl RoktrackVision {
             // Send detections to other threads using the sender
             // Take an image using the camera
             {
+                log::debug!("Vision Camera Process Start");
                 local_self.lock().unwrap().cam.take_picture(); // Lock the inner field and call the take method on the camera field
+                log::debug!("Vision Camera Process End");
                 let session_type = local_self.lock().unwrap().det.session_type.clone(); // Lock the inner field and clone the session type from the detector field
                 let mut dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
                     .lock()
                     .unwrap()
                     .det
                     .infer(&local_property.path.img.last, session_type);
+                log::debug!("Vision Detected: {:?}", dets.clone());
                 // Handle ocr
                 if local_property.conf.vision.ocr {
                     dets = local_self.lock().unwrap().det.ocr(
@@ -120,9 +130,11 @@ impl RoktrackVision {
                         dets.clone(),
                         local_property.as_ref().clone(),
                     );
+                    log::debug!("Vision Detected With Ocr: {:?}", dets.clone());
                 }
                 tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
             }
+            log::debug!("Vision Inference Loop End");
         })
     }
 }

@@ -69,6 +69,7 @@ impl PilotHandler for Fill {
         tx: Sender<VisionMgmtCommand>,
         property: RoktrackProperty,
     ) {
+        log::debug!("Start Fill Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
             SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
@@ -76,6 +77,7 @@ impl PilotHandler for Fill {
             SystemRisk::None => None,
         };
         if system_risk.is_some() {
+            log::debug!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -85,6 +87,7 @@ impl PilotHandler for Fill {
             VisionRisk::None => None,
         };
         if vision_risk.is_some() {
+            log::debug!("Vision Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -96,6 +99,7 @@ impl PilotHandler for Fill {
 
         // Get the first detected marker or a default one
         let marker = select_marker(property, state, detections, device);
+        log::debug!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
@@ -103,8 +107,11 @@ impl PilotHandler for Fill {
         // Calculate constants based on marker and image height
         state.constant = base::calc_constant(state.constant, state.img_height, marker.h);
 
+        let action = assess_situation(state, &marker);
+        log::debug!("Action is {:?}", action);
+
         // Handle the current phase
-        match assess_situation(state, &marker) {
+        match action {
             ActPhase::TurnCountExceeded => base::halt(state, device),
             ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
             ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
@@ -117,6 +124,7 @@ impl PilotHandler for Fill {
             ActPhase::Proceed => base::proceed(state, device, marker, tx),
             ActPhase::None => None,
         };
+        log::debug!("End Fill Handle");
     }
 }
 

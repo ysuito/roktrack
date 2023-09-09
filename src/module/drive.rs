@@ -16,6 +16,7 @@ use super::pilot::follow_person::FollowPerson;
 use super::pilot::monitor_animal::MonitorAnimal;
 use super::pilot::monitor_person::MonitorPerson;
 use super::pilot::oneway::OneWay;
+use super::pilot::round_trip::RoundTrip;
 use super::pilot::PilotHandler;
 
 /// Start the autonomous driving thread.
@@ -57,27 +58,37 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     // Initialize the state.
     let mut state = RoktrackState::new();
     // Initialize drive handler.
-    let mut handler: Box<dyn PilotHandler> = Box::new(Fill::new());
+    let mut handler: Box<dyn PilotHandler> = mode_to_handler(
+        Modes::from_string(property.conf.drive.mode.as_str()),
+        channel_vision_mgmt_tx.clone(),
+    )
+    .unwrap();
 
     thread::spawn(move || loop {
         // Sleep to control the loop rate.
         thread::sleep(Duration::from_millis(10));
 
+        log::debug!("Start Drive Loop");
+
         // Get new neighbor information.
         if let Ok(neighbor) = channel_neighbor_rx.try_recv() {
+            log::debug!("New Neighbor Info Received: {:?}", neighbor.clone());
             // Update the neighbor table.
             neighbors.insert(neighbor.identifier, neighbor.clone());
             // Check command
-            if let Some(n) = command_handler(
+            if let Some(n) = command_to_handler(
                 &mut state,
                 &neighbor,
                 &mut device,
                 channel_vision_mgmt_tx.clone(),
             ) {
+                log::debug!("Replace Handle");
                 // If there are new instructions, replace the handler.
                 handler = n;
             }
         }
+
+        log::debug!("Detection Reception Start");
 
         // Get new inference results.
         let detections = match channel_detections_rx.try_recv() {
@@ -85,8 +96,11 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             Err(_) => None,
         };
 
+        log::debug!("Detection Reception End");
+
         // If there is no detections, skip the rest of the loop.
         if detections.is_none() {
+            log::debug!("No Detection. Continue...");
             continue;
         }
 
@@ -99,6 +113,8 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             property.clone(),
         );
 
+        log::info!("Handling Ended");
+
         // Broadcast my state to neighbors.
         let payload = state.dump(&neighbors.clone());
         com.inner
@@ -106,11 +122,13 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             .lock()
             .unwrap()
             .cast(&state.identifier, payload);
+
+        log::debug!("End Drive Loop");
     })
 }
 
 /// Handle commands received from neighbors.
-fn command_handler(
+fn command_to_handler(
     state: &mut RoktrackState,
     neighbor: &Neighbor,
     device: &mut Roktrack,
@@ -146,9 +164,7 @@ fn command_handler(
             ParentMsg::Fill => {
                 if !state.state && state.mode != Modes::Fill {
                     state.mode = Modes::Fill;
-                    tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
-                    tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
-                    Some(Box::new(Fill::new()))
+                    mode_to_handler(state.mode, tx)
                 } else {
                     None
                 }
@@ -156,9 +172,7 @@ fn command_handler(
             ParentMsg::Oneway => {
                 if !state.state && state.mode != Modes::OneWay {
                     state.mode = Modes::OneWay;
-                    tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
-                    tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
-                    Some(Box::new(OneWay::new()))
+                    mode_to_handler(state.mode, tx)
                 } else {
                     None
                 }
@@ -168,9 +182,7 @@ fn command_handler(
             ParentMsg::MonitorPerson => {
                 if !state.state && state.mode != Modes::MonitorPerson {
                     state.mode = Modes::MonitorPerson;
-                    tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
-                    tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
-                    Some(Box::new(MonitorPerson::new()))
+                    mode_to_handler(state.mode, tx)
                 } else {
                     None
                 }
@@ -178,9 +190,7 @@ fn command_handler(
             ParentMsg::MonitorAnimal => {
                 if !state.state && state.mode != Modes::MonitorAnimal {
                     state.mode = Modes::MonitorAnimal;
-                    tx.send(VisionMgmtCommand::SwitchSessionAnimal).unwrap();
-                    tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
-                    Some(Box::new(MonitorAnimal::new()))
+                    mode_to_handler(state.mode, tx)
                 } else {
                     None
                 }
@@ -189,9 +199,7 @@ fn command_handler(
             ParentMsg::FollowPerson => {
                 if !state.state && state.mode != Modes::FollowPerson {
                     state.mode = Modes::FollowPerson;
-                    tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
-                    tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
-                    Some(Box::new(FollowPerson::new()))
+                    mode_to_handler(state.mode, tx)
                 } else {
                     None
                 }
@@ -207,5 +215,43 @@ fn command_handler(
         }
     } else {
         None
+    }
+}
+/// Convert mode to handler
+fn mode_to_handler(mode: Modes, tx: Sender<VisionMgmtCommand>) -> Option<Box<dyn PilotHandler>> {
+    match mode {
+        Modes::Fill => {
+            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(Fill::new()))
+        }
+        Modes::OneWay => {
+            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(OneWay::new()))
+        }
+        Modes::Climb => None,
+        Modes::Around => None,
+        Modes::MonitorPerson => {
+            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(MonitorPerson::new()))
+        }
+        Modes::MonitorAnimal => {
+            tx.send(VisionMgmtCommand::SwitchSessionAnimal).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(MonitorAnimal::new()))
+        }
+        Modes::RoundTrip => {
+            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(RoundTrip::new()))
+        }
+        Modes::FollowPerson => {
+            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
+            Some(Box::new(FollowPerson::new()))
+        }
+        _ => None,
     }
 }

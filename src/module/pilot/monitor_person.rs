@@ -40,12 +40,14 @@ impl PilotHandler for MonitorPerson {
         _tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
+        log::debug!("Start MonitorPerson Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
             SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
             SystemRisk::None => None,
         };
         if system_risk.is_some() {
+            log::debug!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -61,10 +63,12 @@ impl PilotHandler for MonitorPerson {
             // Get now.
             let utc = chrono::Utc::now();
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {
+                log::debug!("Interval time has elapsed. Re-detection is notified.");
                 self.last_detected_time = utc.timestamp_millis() as u64;
                 todo!("Notify to messaging app.");
             }
         }
+        log::debug!("End MonitorPerson Handle");
     }
 }
 
