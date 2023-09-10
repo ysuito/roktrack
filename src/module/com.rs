@@ -38,6 +38,7 @@ impl BleBroadCast {
     /// /// https://github.com/deviceplug/btleplug/blob/master/examples/discover_adapters_peripherals.rs
     pub fn listen(&self, tx: Sender<Neighbor>) -> JoinHandle<()> {
         thread::spawn(move || {
+            log::debug!("Com Thread Started");
             // Create an asynchronous runtime.
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -72,6 +73,12 @@ impl BleBroadCast {
                             id,
                             manufacturer_data,
                         } => {
+                            log::debug!(
+                                "id:{}, key:{:?}, data:{:?}",
+                                id.clone().to_string(),
+                                *manufacturer_data.keys().last().unwrap(),
+                                manufacturer_data.values().last().unwrap()
+                            );
                             let manufacturer_id: u16 = *manufacturer_data.keys().last().unwrap();
                             let data: &Vec<u8> = manufacturer_data.values().last().unwrap();
                             if manufacturer_id == 65535 {
@@ -186,15 +193,17 @@ impl Neighbor {
     /// Generates neighbor state from advertisement data.
     pub fn from_manufacture_data(data: &[u8]) -> Self {
         // Parse data elements.
-        let identifier = data[0];
-        let buf = [data[1]];
+        // Since the first 3 bytes of the data acquired by btleplug are filled with FF,
+        // the data should be acquired from the 4th byte.
+        let identifier = data[3];
+        let buf = [data[4]];
         let mut bit_reader = BitReader::new(&buf);
         let state: bool = bit_reader.read_u8(1).unwrap() != 0;
         let rest: u8 = bit_reader.read_u8(7).unwrap();
-        let pi_temp = data[2];
-        let mode = data[3];
-        let msg = data[4];
-        let dest = data[5];
+        let pi_temp = data[5];
+        let mode = data[6];
+        let msg = data[7];
+        let dest = data[8];
 
         // Set neighbor information.
         Self {

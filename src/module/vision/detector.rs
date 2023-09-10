@@ -1,10 +1,7 @@
 //! Provide Object Detection
 //!
 pub mod onnx {
-    use crate::module::{
-        define,
-        util::{conf::Config, init::RoktrackProperty},
-    };
+    use crate::module::{define, util::init::RoktrackProperty};
     use image::{imageops::FilterType, io::Reader, ImageBuffer, Pixel, Rgb};
     use ndarray::{s, Array, Axis, IxDyn};
     use ort::{
@@ -59,18 +56,20 @@ pub mod onnx {
         pub session_type: SessionType,
     }
 
+    impl Default for YoloV8 {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     /// Methods for yolov8.
     ///
     impl YoloV8 {
         /// yolov8's constructor.
         ///
-        pub fn new(conf: Config) -> Self {
+        pub fn new() -> Self {
             Self {
-                sessions: if conf.vision.ocr {
-                    Self::build_pylon_ocr_sessions()
-                } else {
-                    Self::build_pylon_sessions()
-                },
+                sessions: Self::build_pylon_sessions(),
                 session_type: SessionType::Sz320,
             }
         }
@@ -169,6 +168,15 @@ pub mod onnx {
                 .t()
                 .into_owned();
             convert_yolo_fmt(out)
+        }
+
+        /// Whether the current session supports OCR
+        pub fn support_ocr(&self) -> bool {
+            match self.sessions {
+                Sessions::Pylon { .. } => false,
+                Sessions::PylonOcr { .. } => true,
+                Sessions::Animal { .. } => false,
+            }
         }
 
         /// Detects numbers in the vicinity of the marker.
@@ -544,7 +552,6 @@ pub mod sort {
 
 #[cfg(test)]
 mod tests {
-    use crate::module::util::init::resource;
 
     use super::*;
 
@@ -608,17 +615,29 @@ mod tests {
     }
 
     #[test]
-    fn any_detect_test() {
-        let property = resource::init();
-        let detector = onnx::YoloV8::new(property.conf);
+    fn roktrack_detect_object_test() {
+        let detector = onnx::YoloV8::new();
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
-        assert!(!dets.is_empty());
+        assert!(dets.len() == 2);
+        let dets = detector.infer("asset/img/person.jpg", onnx::SessionType::Sz320);
+        assert!(dets.len() == 1);
     }
 
     #[test]
-    fn pylon_detect_test() {
-        let property = resource::init();
-        let detector = onnx::YoloV8::new(property.conf);
+    fn animal_detect_object_test() {
+        let mut detector = onnx::YoloV8::new();
+        detector.sessions = onnx::YoloV8::build_animal_sessions();
+        let mut dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320);
+        let dets = AnimalClasses::filter(&mut dets, AnimalClasses::BEAR.to_u32());
+        assert!(dets.len() == 1);
+        let mut dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320);
+        let dets = AnimalClasses::filter(&mut dets, AnimalClasses::MONKEY.to_u32());
+        assert!(dets.len() == 2);
+    }
+
+    #[test]
+    fn pylon_detect_resolution_test() {
+        let detector = onnx::YoloV8::new();
         let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
         let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON.to_u32());
         assert_eq!(dets.len(), 2);

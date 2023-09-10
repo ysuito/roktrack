@@ -11,6 +11,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use super::device::{Chassis, DeviceMgmtCommand, Roktrack};
+use super::pilot::base::{post_process, pre_process};
 use super::pilot::fill::Fill;
 use super::pilot::follow_person::FollowPerson;
 use super::pilot::monitor_animal::MonitorAnimal;
@@ -18,6 +19,7 @@ use super::pilot::monitor_person::MonitorPerson;
 use super::pilot::oneway::OneWay;
 use super::pilot::round_trip::RoundTrip;
 use super::pilot::PilotHandler;
+use super::util::conf::Config;
 
 /// Start the autonomous driving thread.
 pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
@@ -61,14 +63,13 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     let mut handler: Box<dyn PilotHandler> = mode_to_handler(
         Modes::from_string(property.conf.drive.mode.as_str()),
         channel_vision_mgmt_tx.clone(),
+        property.conf.clone(),
     )
     .unwrap();
 
     thread::spawn(move || loop {
         // Sleep to control the loop rate.
         thread::sleep(Duration::from_millis(10));
-
-        log::debug!("Start Drive Loop");
 
         // Get new neighbor information.
         if let Ok(neighbor) = channel_neighbor_rx.try_recv() {
@@ -81,6 +82,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
                 &neighbor,
                 &mut device,
                 channel_vision_mgmt_tx.clone(),
+                property.conf.clone(),
             ) {
                 log::debug!("Replace Handle");
                 // If there are new instructions, replace the handler.
@@ -88,23 +90,21 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             }
         }
 
-        log::debug!("Detection Reception Start");
-
         // Get new inference results.
         let detections = match channel_detections_rx.try_recv() {
             Ok(detections) => Some(detections),
             Err(_) => None,
         };
 
-        log::debug!("Detection Reception End");
-
         // If there is no detections, skip the rest of the loop.
         if detections.is_none() {
-            log::debug!("No Detection. Continue...");
             continue;
         }
 
-        // handle driving
+        // Pre-processing for handling
+        let _ = pre_process(&mut state, &mut device);
+
+        // Drive Handling
         handler.handle(
             &mut state,
             &mut device,
@@ -113,7 +113,8 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             property.clone(),
         );
 
-        log::info!("Handling Ended");
+        // Post-processing for handling
+        let _ = post_process(&mut state, &mut device);
 
         // Broadcast my state to neighbors.
         let payload = state.dump(&neighbors.clone());
@@ -122,8 +123,6 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             .lock()
             .unwrap()
             .cast(&state.identifier, payload);
-
-        log::debug!("End Drive Loop");
     })
 }
 
@@ -133,6 +132,7 @@ fn command_to_handler(
     neighbor: &Neighbor,
     device: &mut Roktrack,
     tx: Sender<VisionMgmtCommand>,
+    conf: Config,
 ) -> Option<Box<dyn PilotHandler>> {
     // Handle commands from the parent (smartphone app).
     if neighbor.identifier == 0 && neighbor.dest == 255 {
@@ -164,7 +164,7 @@ fn command_to_handler(
             ParentMsg::Fill => {
                 if !state.state && state.mode != Modes::Fill {
                     state.mode = Modes::Fill;
-                    mode_to_handler(state.mode, tx)
+                    mode_to_handler(state.mode, tx, conf)
                 } else {
                     None
                 }
@@ -172,7 +172,7 @@ fn command_to_handler(
             ParentMsg::Oneway => {
                 if !state.state && state.mode != Modes::OneWay {
                     state.mode = Modes::OneWay;
-                    mode_to_handler(state.mode, tx)
+                    mode_to_handler(state.mode, tx, conf)
                 } else {
                     None
                 }
@@ -182,7 +182,7 @@ fn command_to_handler(
             ParentMsg::MonitorPerson => {
                 if !state.state && state.mode != Modes::MonitorPerson {
                     state.mode = Modes::MonitorPerson;
-                    mode_to_handler(state.mode, tx)
+                    mode_to_handler(state.mode, tx, conf)
                 } else {
                     None
                 }
@@ -190,7 +190,7 @@ fn command_to_handler(
             ParentMsg::MonitorAnimal => {
                 if !state.state && state.mode != Modes::MonitorAnimal {
                     state.mode = Modes::MonitorAnimal;
-                    mode_to_handler(state.mode, tx)
+                    mode_to_handler(state.mode, tx, conf)
                 } else {
                     None
                 }
@@ -199,7 +199,7 @@ fn command_to_handler(
             ParentMsg::FollowPerson => {
                 if !state.state && state.mode != Modes::FollowPerson {
                     state.mode = Modes::FollowPerson;
-                    mode_to_handler(state.mode, tx)
+                    mode_to_handler(state.mode, tx, conf)
                 } else {
                     None
                 }
@@ -218,10 +218,17 @@ fn command_to_handler(
     }
 }
 /// Convert mode to handler
-fn mode_to_handler(mode: Modes, tx: Sender<VisionMgmtCommand>) -> Option<Box<dyn PilotHandler>> {
+fn mode_to_handler(
+    mode: Modes,
+    tx: Sender<VisionMgmtCommand>,
+    conf: Config,
+) -> Option<Box<dyn PilotHandler>> {
     match mode {
         Modes::Fill => {
-            tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+            match conf.vision.ocr {
+                true => tx.send(VisionMgmtCommand::SwitchSessionPylonOcr).unwrap(),
+                false => tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap(),
+            }
             tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
             Some(Box::new(Fill::new()))
         }

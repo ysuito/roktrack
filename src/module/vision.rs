@@ -34,6 +34,7 @@ pub enum VisionMgmtCommand {
 pub struct RoktrackVision {
     inner: Arc<Mutex<RoktrackVisionInner>>, // A shared and synchronized wrapper for the inner struct that contains the camera and detector fields
     property: Arc<RoktrackProperty>, // A shared wrapper for the property struct that contains the paths and configurations
+    state: Arc<Mutex<bool>>,
 }
 
 /// This impl block defines the methods for the RoktrackVision struct.
@@ -45,6 +46,7 @@ impl RoktrackVision {
             inner: Arc::new(Mutex::new(RoktrackVisionInner::new(property.clone()))),
             // Create a new Arc<RoktrackProperty> by calling the new method on the Arc type and passing the property
             property: Arc::new(property),
+            state: Arc::new(Mutex::new(true)),
         }
     }
 
@@ -58,6 +60,7 @@ impl RoktrackVision {
     ) -> JoinHandle<()> {
         let local_self = self.inner.clone(); // Clone the inner field to avoid borrowing issues
         let local_property = self.property.clone(); // Clone the property field to avoid borrowing issues
+        let local_state = self.state.clone();
 
         // Spawn a new thread and run an infinite loop
         thread::spawn(move || loop {
@@ -68,20 +71,16 @@ impl RoktrackVision {
             // Read the management commands from the receiver and match them
             match rx.try_recv() {
                 Ok(VisionMgmtCommand::Off) => {
+                    *local_state.lock().unwrap() = false;
                     continue; // If the command is Off, skip the rest of the loop and try again
                 }
-                Ok(VisionMgmtCommand::On) => (), // If the command is On, do nothing and proceed
+                Ok(VisionMgmtCommand::On) => {
+                    *local_state.lock().unwrap() = true;
+                } // If the command is On, do nothing and proceed
                 Ok(VisionMgmtCommand::SwitchSessionPylon) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylon Received");
-                    if local_property.conf.vision.ocr {
-                        // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
-                        local_self.lock().unwrap().det.sessions =
-                            detector::onnx::YoloV8::build_pylon_ocr_sessions();
-                    } else {
-                        // If the command is SwitchSessionPylon, lock the inner field and update the detector sessions with the pylon sessions
-                        local_self.lock().unwrap().det.sessions =
-                            detector::onnx::YoloV8::build_pylon_sessions();
-                    }
+                    local_self.lock().unwrap().det.sessions =
+                        detector::onnx::YoloV8::build_pylon_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionPylonOcr) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylonOcr Received");
@@ -110,6 +109,11 @@ impl RoktrackVision {
                 Err(_) => {} // If there is no command or an error, do nothing and proceed
             }
 
+            // If local state is off, processing is suspended.
+            if !local_state.lock().unwrap().to_owned() {
+                continue;
+            }
+
             // Send detections to other threads using the sender
             // Take an image using the camera
             {
@@ -124,7 +128,8 @@ impl RoktrackVision {
                     .infer(&local_property.path.img.last, session_type);
                 log::debug!("Vision Detected: {:?}", dets.clone());
                 // Handle ocr
-                if local_property.conf.vision.ocr {
+                let ocr_support = local_self.lock().unwrap().det.support_ocr();
+                if ocr_support {
                     dets = local_self.lock().unwrap().det.ocr(
                         &local_property.path.img.last,
                         dets.clone(),
@@ -153,7 +158,7 @@ impl RoktrackVisionInner {
             // Create a new camera::V4l2 instance by calling the new method on the V4l2 module and passing the property
             cam: camera::V4l2Camera::new(property.clone()),
             // Create a new detector::onnx::YoloV8 instance by calling the new method on the YoloV8 module
-            det: detector::onnx::YoloV8::new(property.conf),
+            det: detector::onnx::YoloV8::new(),
         }
     }
 }

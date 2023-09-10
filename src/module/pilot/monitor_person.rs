@@ -43,8 +43,8 @@ impl PilotHandler for MonitorPerson {
         log::debug!("Start MonitorPerson Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
-            SystemRisk::None => None,
+            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
+            None => None,
         };
         if system_risk.is_some() {
             log::debug!("System Risk Exists. Continue.");
@@ -78,16 +78,15 @@ impl PilotHandler for MonitorPerson {
 enum SystemRisk {
     StateOff,
     HighTemp,
-    None,
 }
 /// Identify system-related risks
 ///
-fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> SystemRisk {
+fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<SystemRisk> {
     if !state.state {
-        SystemRisk::StateOff
+        Some(SystemRisk::StateOff)
     } else if device.inner.clone().lock().unwrap().measure_temp() > 70.0 {
-        SystemRisk::HighTemp
+        Some(SystemRisk::HighTemp)
     } else {
-        SystemRisk::None
+        None
     }
 }

@@ -15,6 +15,18 @@ use crate::module::vision::VisionMgmtCommand;
 
 use super::Phase;
 
+/// Pre-processing for handle.
+pub fn pre_process(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+    // Record system temperature.
+    state.pi_temp = device.inner.clone().lock().unwrap().measure_temp();
+    Ok(())
+}
+
+/// Post-processing for handle.
+pub fn post_process(_state: &mut RoktrackState, _device: &mut Roktrack) -> Result<(), String> {
+    Ok(())
+}
+
 /// Stop the drive and work motor.
 ///
 /// This function stops both the drive and the work motor of the Roktrack.
@@ -26,9 +38,9 @@ use super::Phase;
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn stop(device: &mut Roktrack) -> Option<()> {
+pub fn stop(device: &mut Roktrack) -> Result<(), String> {
     device.inner.clone().lock().unwrap().stop();
-    Some(())
+    Ok(())
 }
 
 /// Perform an escape action to recover from an obstacle or risk.
@@ -45,7 +57,7 @@ pub fn stop(device: &mut Roktrack) -> Option<()> {
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Result<(), String> {
     let binding = device.inner.clone();
     let mut device_lock = binding.lock().unwrap();
     device_lock.backward(2000);
@@ -62,7 +74,7 @@ pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Option<()> {
         Phase::CW => device_lock.left(500),
     };
     thread::sleep(time::Duration::from_millis(500));
-    Some(())
+    Ok(())
 }
 
 /// Terminate the driving and set the state to off.
@@ -78,13 +90,18 @@ pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Option<()> {
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn halt(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn halt(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+    tx: Sender<VisionMgmtCommand>,
+) -> Result<(), String> {
     state.state = false;
     state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
     device.inner.clone().lock().unwrap().stop();
     device.inner.clone().lock().unwrap().speak("cone_not_found");
+    tx.send(VisionMgmtCommand::Off).unwrap();
     log::warn!("Halted!");
-    Some(())
+    Ok(())
 }
 
 /// Increase the image resolution and adjust state.
@@ -97,7 +114,7 @@ pub fn halt(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
 ///
 /// * `state` - A mutable reference to the RoktrackState representing the current state of the pilot.
 /// * `tx` - A sender for sending commands to the vision management system.
-pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
+pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
     // Command vision to upscale
     tx.send(VisionMgmtCommand::SwitchSz640).unwrap();
     // Change local state
@@ -116,6 +133,7 @@ pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
         state.target_height,
         ratio,
     );
+    Ok(())
 }
 
 /// Decrease the image resolution and adjust state.
@@ -128,7 +146,7 @@ pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
 ///
 /// * `state` - A mutable reference to the RoktrackState representing the current state of the pilot.
 /// * `tx` - A sender for sending commands to the vision management system.
-pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
+pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
     // Command vision to downscale
     tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
     // Change local state
@@ -147,6 +165,7 @@ pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
         state.target_height,
         ratio,
     );
+    Ok(())
 }
 
 /// Reset the last seen height (`ex_height`) and turn direction when the marker is lost.
@@ -163,7 +182,7 @@ pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) {
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
     // Notify that the target is lost
     state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
     // Reset the expected height to 110% of the image height
@@ -180,7 +199,7 @@ pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Opti
         state.ex_height,
         state.turn_count,
     );
-    Some(())
+    Ok(())
 }
 
 /// Calculate and set the constant for height adjustments when reaching a marker.
@@ -229,13 +248,13 @@ pub fn calc_constant(cur_constant: f32, img_height: u32, marker_height: u32) -> 
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
     // Invert the current phase (lap direction)
     state.invert_phase();
     // Pause the Roktrack's movement
     device.inner.clone().lock().unwrap().pause();
     log::debug!("Phase Inverted. Pausing... new_phase: {:?}", state.phase);
-    Some(())
+    Ok(())
 }
 
 /// Perform actions when mission targets are achieved, and the system is shut down.
@@ -250,13 +269,13 @@ pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Option<
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn mission_complete(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn mission_complete(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
     // Set the pilot's state to false (off)
     state.state = false;
     // Stop the Roktrack's movement
     device.inner.clone().lock().unwrap().stop();
     log::debug!("Mission Completed!");
-    Some(())
+    Ok(())
 }
 
 /// Keep turning to search for the next marker.
@@ -277,7 +296,7 @@ pub fn keep_turn(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     tx: Sender<VisionMgmtCommand>,
-) -> Option<()> {
+) -> Result<(), String> {
     // Instruct the Roktrack to turn based on the current phase
     match state.phase {
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
@@ -285,12 +304,12 @@ pub fn keep_turn(
     };
     // If the turn count exceeds 4, request an image resolution upscale
     if state.turn_count > 4 {
-        upscale(state, tx);
+        let _ = upscale(state, tx);
     }
     // Increment the turn count
     state.turn_count += 1;
     log::debug!("Keep Turning. turn_count: {}", state.turn_count);
-    Some(())
+    Ok(())
 }
 
 /// Set a new target based on the detected marker.
@@ -311,7 +330,7 @@ pub fn set_new_target(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     marker: Detection,
-) -> Option<()> {
+) -> Result<(), String> {
     // Notify that a new target is found
     state.msg = ChildMsg::to_u8(ChildMsg::NewTargetFound);
     // Speak a notification
@@ -330,7 +349,7 @@ pub fn set_new_target(
         state.target_height,
         state.turn_count
     );
-    Some(())
+    Ok(())
 }
 
 /// Transition to higher resolution to reattempt marker detection.
@@ -345,15 +364,15 @@ pub fn set_new_target(
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Option<()> {
+pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
     log::debug!("Standing.");
     // Transition to higher resolution
-    upscale(state, tx);
+    let _ = upscale(state, tx);
     // Send "target lost" message
     state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
     // Reset the turn count
     state.turn_count = 0;
-    Some(())
+    Ok(())
 }
 
 /// Start turning to search for the next marker.
@@ -369,7 +388,7 @@ pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Option
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn start_turn(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()> {
+pub fn start_turn(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
     // Start the Roktrack's movement in the specified direction
     match state.phase {
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
@@ -387,7 +406,7 @@ pub fn start_turn(state: &mut RoktrackState, device: &mut Roktrack) -> Option<()
         state.ex_height,
         state.target_height
     );
-    Some(())
+    Ok(())
 }
 
 /// Reach a marker with marker height greater than the target height.
@@ -409,7 +428,7 @@ pub fn reach_marker(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     marker: Detection,
-) -> Option<()> {
+) -> Result<(), String> {
     // Pause the Roktrack's movement
     device.inner.clone().lock().unwrap().pause();
     // Reset the turn count to 1
@@ -433,7 +452,7 @@ pub fn reach_marker(
         state.ex_height,
         state.target_height
     );
-    Some(())
+    Ok(())
 }
 
 /// Calculate the difference in the target direction.
@@ -517,7 +536,7 @@ pub fn proceed(
     device: &mut Roktrack,
     marker: Detection,
     tx: Sender<VisionMgmtCommand>,
-) -> Option<()> {
+) -> Result<(), String> {
     // Calculate the difference between the target direction and the current direction of travel
     let diff = get_diff(
         marker.xc,
@@ -563,10 +582,10 @@ pub fn proceed(
     // Check if high-resolution processing is needed based on marker height and current image resolution
     if marker.h as f32 > state.img_height as f32 * 0.05 && state.img_width == 640 {
         // Send a command to downscale the resolution
-        downscale(state, tx);
+        let _ = downscale(state, tx);
     }
 
-    Some(())
+    Ok(())
 }
 
 /// Determine if this marker is eligible for pass-through
@@ -640,7 +659,7 @@ pub fn select_marker(
     device: &mut Roktrack,
 ) -> Detection {
     if property.conf.vision.ocr {
-        if state.marker_id.is_none() {
+        if state.marker_id.is_none() && !detections.is_empty() {
             let detection = detections.first().unwrap();
             if !detection.ids.is_empty() {
                 device.inner.lock().unwrap().stop();
@@ -732,14 +751,14 @@ mod tests {
         assert_eq!(state.img_width, 320);
 
         // Test upscaling
-        upscale(&mut state, channel_vision_mgmt_tx.clone());
+        let _ = upscale(&mut state, channel_vision_mgmt_tx.clone());
         assert_eq!(state.ex_height, 200);
         assert_eq!(state.target_height, 432);
         assert_eq!(state.img_height, 480);
         assert_eq!(state.img_width, 640);
 
         // Test downscaling
-        downscale(&mut state, channel_vision_mgmt_tx.clone());
+        let _ = downscale(&mut state, channel_vision_mgmt_tx.clone());
         assert_eq!(state.ex_height, 100);
         assert_eq!(state.target_height, 216);
         assert_eq!(state.img_height, 240);

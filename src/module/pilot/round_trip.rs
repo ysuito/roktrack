@@ -43,9 +43,9 @@ impl PilotHandler for RoundTrip {
         log::debug!("Start RoundTrip Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            SystemRisk::StateOff | SystemRisk::HighTemp => Some(base::stop(device)),
-            SystemRisk::Bumped => Some(base::escape(state, device)),
-            SystemRisk::None => None,
+            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
+            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            None => None,
         };
         if system_risk.is_some() {
             log::debug!("System Risk Exists. Continue.");
@@ -71,14 +71,14 @@ impl PilotHandler for RoundTrip {
         log::debug!("Action is {:?}", action);
 
         // Handle the current phase
-        match action {
-            ActPhase::TurnCountExceeded => base::halt(state, device),
-            ActPhase::TurnMarkerInvisible => base::reset_ex_height(state, device),
-            ActPhase::TurnMarkerFound => base::set_new_target(state, device, marker),
-            ActPhase::TurnKeep => base::keep_turn(state, device, tx),
-            ActPhase::Stand => base::stand(state, tx),
-            ActPhase::StartTurn => base::start_turn(state, device),
-            ActPhase::ReachMarker => {
+        let _ = match action {
+            Some(ActPhase::TurnCountExceeded) => base::halt(state, device, tx),
+            Some(ActPhase::TurnMarkerInvisible) => base::reset_ex_height(state, device),
+            Some(ActPhase::TurnMarkerFound) => base::set_new_target(state, device, marker),
+            Some(ActPhase::TurnKeep) => base::keep_turn(state, device, tx),
+            Some(ActPhase::Stand) => base::stand(state, tx),
+            Some(ActPhase::StartTurn) => base::start_turn(state, device),
+            Some(ActPhase::ReachMarker) => {
                 self.target_object = match self.target_object {
                     RoundTripObject::Marker => {
                         log::debug!("Target Object Switch. Marker -> Person");
@@ -91,8 +91,8 @@ impl PilotHandler for RoundTrip {
                 };
                 base::reach_marker(state, device, marker)
             }
-            ActPhase::Proceed => base::proceed(state, device, marker, tx),
-            ActPhase::None => None,
+            Some(ActPhase::Proceed) => base::proceed(state, device, marker, tx),
+            None => Ok(()),
         };
         log::debug!("End RoundTrip Handle");
     }
@@ -122,19 +122,18 @@ enum SystemRisk {
     StateOff,
     HighTemp,
     Bumped,
-    None,
 }
 /// Identify system-related risks
 ///
-fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> SystemRisk {
+fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<SystemRisk> {
     if !state.state {
-        SystemRisk::StateOff
+        Some(SystemRisk::StateOff)
     } else if device.inner.clone().lock().unwrap().measure_temp() > 70.0 {
-        SystemRisk::HighTemp
+        Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        SystemRisk::Bumped
+        Some(SystemRisk::Bumped)
     } else {
-        SystemRisk::None
+        None
     }
 }
 /// Actions for Fill Drive Pilot
@@ -149,31 +148,30 @@ enum ActPhase {
     StartTurn,
     ReachMarker,
     Proceed,
-    None,
 }
 /// Function to assess the current situation and determine the appropriate action phase
-fn assess_situation(state: &RoktrackState, marker: &Detection) -> ActPhase {
+fn assess_situation(state: &RoktrackState, marker: &Detection) -> Option<ActPhase> {
     if 7 <= state.turn_count {
-        ActPhase::TurnCountExceeded
+        Some(ActPhase::TurnCountExceeded)
     } else if 0 < state.turn_count {
         if marker.h == 0 {
-            ActPhase::TurnMarkerInvisible
+            Some(ActPhase::TurnMarkerInvisible)
         } else if (marker.h as f32) < state.ex_height as f32 - state.img_height as f32 * 0.015 {
-            ActPhase::TurnMarkerFound
+            Some(ActPhase::TurnMarkerFound)
         } else {
-            ActPhase::TurnKeep
+            Some(ActPhase::TurnKeep)
         }
     } else if marker.h == 0 {
         if state.turn_count == -1 {
-            ActPhase::Stand
+            Some(ActPhase::Stand)
         } else if state.turn_count == 0 {
-            ActPhase::StartTurn
+            Some(ActPhase::StartTurn)
         } else {
-            ActPhase::None
+            None
         }
     } else if state.target_height <= marker.h as u16 {
-        ActPhase::ReachMarker
+        Some(ActPhase::ReachMarker)
     } else {
-        ActPhase::Proceed
+        Some(ActPhase::Proceed)
     }
 }
