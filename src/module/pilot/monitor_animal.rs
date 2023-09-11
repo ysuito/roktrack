@@ -4,8 +4,12 @@ use std::sync::mpsc::Sender;
 
 use super::PilotHandler;
 use crate::module::{
-    device::Roktrack, pilot::base, pilot::RoktrackState, util::init::RoktrackProperty,
-    vision::detector::Detection, vision::VisionMgmtCommand,
+    device::Roktrack,
+    pilot::base,
+    pilot::RoktrackState,
+    util::{common::send_line_notify_with_image, init::RoktrackProperty},
+    vision::detector::{AnimalClasses, Detection},
+    vision::VisionMgmtCommand,
 };
 
 pub struct MonitorAnimal {
@@ -34,7 +38,7 @@ impl PilotHandler for MonitorAnimal {
         device: &mut Roktrack,
         detections: &mut [Detection],
         _tx: Sender<VisionMgmtCommand>,
-        _property: RoktrackProperty,
+        property: RoktrackProperty,
     ) {
         log::debug!("Start MonitorAnimal Handle");
         // Assess and handle system safety
@@ -61,7 +65,11 @@ impl PilotHandler for MonitorAnimal {
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {
                 log::debug!("Interval time has elapsed. Re-detection is notified.");
                 self.last_detected_time = utc.timestamp_millis() as u64;
-                todo!("Notify to messaging app.");
+                let msg = format!(
+                    "{:?} detected.",
+                    AnimalClasses::from_u32(detections.first().unwrap().cls)
+                );
+                let _ = send_line_notify_with_image(&msg, &property.path.img.last, property.conf);
             }
         }
         log::debug!("End MonitorAnimal Handle");

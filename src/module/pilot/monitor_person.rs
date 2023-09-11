@@ -7,7 +7,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::RoktrackState,
-    util::init::RoktrackProperty,
+    util::{common::send_line_notify_with_image, init::RoktrackProperty},
     vision::detector::{Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
 };
@@ -38,7 +38,7 @@ impl PilotHandler for MonitorPerson {
         device: &mut Roktrack,
         detections: &mut [Detection],
         _tx: Sender<VisionMgmtCommand>,
-        _property: RoktrackProperty,
+        property: RoktrackProperty,
     ) {
         log::debug!("Start MonitorPerson Handle");
         // Assess and handle system safety
@@ -65,7 +65,11 @@ impl PilotHandler for MonitorPerson {
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {
                 log::debug!("Interval time has elapsed. Re-detection is notified.");
                 self.last_detected_time = utc.timestamp_millis() as u64;
-                todo!("Notify to messaging app.");
+                let _ = send_line_notify_with_image(
+                    "Person detected.",
+                    &property.path.img.last,
+                    property.conf,
+                );
             }
         }
         log::debug!("End MonitorPerson Handle");
