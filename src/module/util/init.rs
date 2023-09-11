@@ -8,13 +8,14 @@ pub mod resource {
     ///
     pub fn init() -> RoktrackProperty {
         // Announce the start of mowing by calling the speak function from the speaker submodule
-        crate::module::device::speaker::speak("start_mowing");
+        let _ = crate::module::device::speaker::speak("start_mowing");
 
         // Prepare the app data directory by calling the create_app_sub_dir function from the dir submodule
         let paths = crate::module::util::path::dir::create_app_sub_dir();
 
         // Load the app configuration file by calling the load function from the toml submodule
-        let conf = crate::module::util::conf::toml::load(&paths.dir.data);
+        let conf =
+            crate::module::util::conf::toml::load(&paths.dir.data).expect("Can't load config.");
 
         // Return a RoktrackProperty instance that contains the paths and configurations
         RoktrackProperty { path: paths, conf }

@@ -121,8 +121,10 @@ pub mod dir {
     pub fn create_app_sub_dir() -> RoktrackPath {
         let data_dir = create_data_dir();
         let tmp_dir = create_tmp_dir();
-        let img_dir = create_dir_from_path_list(&[&data_dir, define::path::IMG_DIR]).unwrap();
-        let log_dir = create_dir_from_path_list(&[&data_dir, define::path::LOG_DIR]).unwrap();
+        let img_dir = create_dir_from_path_list(&[&data_dir, define::path::IMG_DIR])
+            .expect("Can't create IMG_DIR");
+        let log_dir = create_dir_from_path_list(&[&data_dir, define::path::LOG_DIR])
+            .expect("Can't create LOG_DIR");
         let last_img = super::join(&[&tmp_dir, define::path::LAST_IMAGE]);
         let crop_img = super::join(&[&tmp_dir, define::path::CROP_IMAGE]);
         RoktrackPath {

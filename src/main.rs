@@ -23,7 +23,7 @@ use std::path::Path; // Import the PatternEncoder struct from the log4rs crate
 pub mod module;
 
 /// The main function of Roktrack
-pub fn main() {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // handle command line args
     let args: Vec<String> = env::args().collect();
     let mut console_level = LevelFilter::Warn;
@@ -47,6 +47,7 @@ pub fn main() {
 
     // Wait for the drive thread to finish before exiting the main function
     let _ = drive_handler.join();
+    Ok(())
 }
 
 /// This function initializes the logger system using the log4rs crate.

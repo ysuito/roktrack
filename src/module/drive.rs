@@ -65,7 +65,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
         channel_vision_mgmt_tx.clone(),
         property.conf.clone(),
     )
-    .unwrap();
+    .expect("Can't initialize handler.");
 
     thread::spawn(move || loop {
         // Sleep to control the loop rate.
@@ -97,32 +97,33 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
         };
 
         // If there is no detections, skip the rest of the loop.
-        if detections.is_none() {
-            continue;
+        if let Some(dets) = detections {
+            // Binding for detections
+            let mut dets = dets;
+
+            // Pre-processing for handling
+            let _ = pre_process(&mut state, &mut device);
+
+            // Drive Handling
+            handler.handle(
+                &mut state,
+                &mut device,
+                &mut dets,
+                channel_vision_mgmt_tx.clone(),
+                property.clone(),
+            );
+
+            // Post-processing for handling
+            let _ = post_process(&mut state, &mut device);
+
+            // Broadcast my state to neighbors.
+            let payload = state.dump(&neighbors.clone());
+            com.inner
+                .clone()
+                .lock()
+                .unwrap()
+                .cast(&state.identifier, payload);
         }
-
-        // Pre-processing for handling
-        let _ = pre_process(&mut state, &mut device);
-
-        // Drive Handling
-        handler.handle(
-            &mut state,
-            &mut device,
-            &mut detections.unwrap(),
-            channel_vision_mgmt_tx.clone(),
-            property.clone(),
-        );
-
-        // Post-processing for handling
-        let _ = post_process(&mut state, &mut device);
-
-        // Broadcast my state to neighbors.
-        let payload = state.dump(&neighbors.clone());
-        com.inner
-            .clone()
-            .lock()
-            .unwrap()
-            .cast(&state.identifier, payload);
     })
 }
 

@@ -16,14 +16,22 @@ use crate::module::vision::VisionMgmtCommand;
 use super::Phase;
 
 /// Pre-processing for handle.
-pub fn pre_process(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn pre_process(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Record system temperature.
-    state.pi_temp = device.inner.clone().lock().unwrap().measure_temp();
+    if let Ok(t) = device.inner.clone().lock().unwrap().measure_temp() {
+        state.pi_temp = t
+    };
     Ok(())
 }
 
 /// Post-processing for handle.
-pub fn post_process(_state: &mut RoktrackState, _device: &mut Roktrack) -> Result<(), String> {
+pub fn post_process(
+    _state: &mut RoktrackState,
+    _device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
@@ -38,7 +46,7 @@ pub fn post_process(_state: &mut RoktrackState, _device: &mut Roktrack) -> Resul
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn stop(device: &mut Roktrack) -> Result<(), String> {
+pub fn stop(device: &mut Roktrack) -> Result<(), Box<dyn std::error::Error>> {
     device.inner.clone().lock().unwrap().stop();
     Ok(())
 }
@@ -57,7 +65,10 @@ pub fn stop(device: &mut Roktrack) -> Result<(), String> {
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn escape(state: &RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn escape(
+    state: &RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     let binding = device.inner.clone();
     let mut device_lock = binding.lock().unwrap();
     device_lock.backward(2000);
@@ -94,7 +105,7 @@ pub fn halt(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     tx: Sender<VisionMgmtCommand>,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     state.state = false;
     state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
     device.inner.clone().lock().unwrap().stop();
@@ -114,7 +125,10 @@ pub fn halt(
 ///
 /// * `state` - A mutable reference to the RoktrackState representing the current state of the pilot.
 /// * `tx` - A sender for sending commands to the vision management system.
-pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
+pub fn upscale(
+    state: &mut RoktrackState,
+    tx: Sender<VisionMgmtCommand>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Command vision to upscale
     tx.send(VisionMgmtCommand::SwitchSz640).unwrap();
     // Change local state
@@ -146,7 +160,10 @@ pub fn upscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Resu
 ///
 /// * `state` - A mutable reference to the RoktrackState representing the current state of the pilot.
 /// * `tx` - A sender for sending commands to the vision management system.
-pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
+pub fn downscale(
+    state: &mut RoktrackState,
+    tx: Sender<VisionMgmtCommand>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Command vision to downscale
     tx.send(VisionMgmtCommand::SwitchSz320).unwrap();
     // Change local state
@@ -182,7 +199,10 @@ pub fn downscale(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Re
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn reset_ex_height(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn reset_ex_height(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Notify that the target is lost
     state.msg = ChildMsg::to_u8(ChildMsg::TargetLost);
     // Reset the expected height to 110% of the image height
@@ -248,7 +268,10 @@ pub fn calc_constant(cur_constant: f32, img_height: u32, marker_height: u32) -> 
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn invert_phase(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Invert the current phase (lap direction)
     state.invert_phase();
     // Pause the Roktrack's movement
@@ -269,7 +292,10 @@ pub fn invert_phase(state: &mut RoktrackState, device: &mut Roktrack) -> Result<
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn mission_complete(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn mission_complete(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Set the pilot's state to false (off)
     state.state = false;
     // Stop the Roktrack's movement
@@ -296,7 +322,7 @@ pub fn keep_turn(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     tx: Sender<VisionMgmtCommand>,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // Instruct the Roktrack to turn based on the current phase
     match state.phase {
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
@@ -330,7 +356,7 @@ pub fn set_new_target(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     marker: Detection,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // Notify that a new target is found
     state.msg = ChildMsg::to_u8(ChildMsg::NewTargetFound);
     // Speak a notification
@@ -364,7 +390,10 @@ pub fn set_new_target(
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result<(), String> {
+pub fn stand(
+    state: &mut RoktrackState,
+    tx: Sender<VisionMgmtCommand>,
+) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("Standing.");
     // Transition to higher resolution
     let _ = upscale(state, tx);
@@ -388,7 +417,10 @@ pub fn stand(state: &mut RoktrackState, tx: Sender<VisionMgmtCommand>) -> Result
 /// # Returns
 ///
 /// An `Option<()>` where `Some(())` indicates success.
-pub fn start_turn(state: &mut RoktrackState, device: &mut Roktrack) -> Result<(), String> {
+pub fn start_turn(
+    state: &mut RoktrackState,
+    device: &mut Roktrack,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Start the Roktrack's movement in the specified direction
     match state.phase {
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
@@ -428,7 +460,7 @@ pub fn reach_marker(
     state: &mut RoktrackState,
     device: &mut Roktrack,
     marker: Detection,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // Pause the Roktrack's movement
     device.inner.clone().lock().unwrap().pause();
     // Reset the turn count to 1
@@ -536,7 +568,7 @@ pub fn proceed(
     device: &mut Roktrack,
     marker: Detection,
     tx: Sender<VisionMgmtCommand>,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // Calculate the difference between the target direction and the current direction of travel
     let diff = get_diff(
         marker.xc,

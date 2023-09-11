@@ -85,10 +85,10 @@ enum SystemRisk {
 }
 /// Identify system-related risks
 ///
-fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<SystemRisk> {
+fn assess_system_risk(state: &RoktrackState, _device: &Roktrack) -> Option<SystemRisk> {
     if !state.state {
         Some(SystemRisk::StateOff)
-    } else if device.inner.clone().lock().unwrap().measure_temp() > 70.0 {
+    } else if state.pi_temp > 70.0 {
         Some(SystemRisk::HighTemp)
     } else {
         None

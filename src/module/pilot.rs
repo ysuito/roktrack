@@ -167,7 +167,7 @@ impl RoktrackState {
         }
         // Construct the first byte
         let state_and_rest = format!("{:b}{:b}", self.state as u8, (self.rest * 100.0) as u8);
-        let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap() as u8;
+        let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap_or(0) as u8;
         // Construct the payload
         let mut val = vec![
             state_and_rest,          // State and rest

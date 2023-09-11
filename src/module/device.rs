@@ -101,18 +101,18 @@ impl RoktrackInner {
 
     /// Plays audio files stored in the asset/audio/ folder.
     pub fn speak(&self, name: &str) {
-        speaker::speak(name);
+        let _ = speaker::speak(name);
     }
 
     /// Measures the temperature of the Raspberry Pi's SoC.
-    pub fn measure_temp(&self) -> f32 {
-        let mut f = File::open(TEMPERATURE_FILE).unwrap();
+    pub fn measure_temp(&self) -> Result<f32, Box<dyn std::error::Error>> {
+        let mut f = File::open(TEMPERATURE_FILE)?;
         let mut c = String::new();
-        f.read_to_string(&mut c).unwrap();
+        f.read_to_string(&mut c)?;
 
         // Convert temperature format (e.g., 45678 -> 45.678)
         let temp = format!("{}.{}", &c[0..2], &c[2..5]);
-        temp.parse::<f32>().unwrap()
+        Ok(temp.parse::<f32>()?)
     }
 
     /// Adjusts the output power of the left and right motors to maintain straightness.
@@ -207,7 +207,7 @@ mod tests {
     #[ignore]
     fn drive_test() {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
-        let conf = crate::module::util::conf::toml::load(&paths.dir.data);
+        let conf = crate::module::util::conf::toml::load(&paths.dir.data).unwrap();
         let roktrack = Roktrack::new(conf);
         println!("device test forward ever");
         roktrack.inner.clone().lock().unwrap().forward(0);
@@ -301,8 +301,26 @@ mod tests {
     fn measure_temp_test() {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
         let conf = crate::module::util::conf::toml::load(&paths.dir.data);
-        let roktrack = Roktrack::new(conf);
-        assert!((roktrack.inner.clone().lock().unwrap().measure_temp() > 20.0));
-        assert!(roktrack.inner.clone().lock().unwrap().measure_temp() < 70.0);
+        let roktrack = Roktrack::new(conf.unwrap());
+        assert!(
+            (roktrack
+                .inner
+                .clone()
+                .lock()
+                .unwrap()
+                .measure_temp()
+                .unwrap()
+                > 20.0)
+        );
+        assert!(
+            roktrack
+                .inner
+                .clone()
+                .lock()
+                .unwrap()
+                .measure_temp()
+                .unwrap()
+                < 70.0
+        );
     }
 }

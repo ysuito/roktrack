@@ -7,6 +7,7 @@ Roktrack is a pylon-guided robotic mower.
 
 # Requirement
 * libv4l-dev
+* libssl-dev
 * Raspberry Pi 3A+ or 4B
 * Rust
 

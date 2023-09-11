@@ -15,23 +15,16 @@ pub fn send_line_notify_with_image(
     let token = token.as_str();
 
     let mut head = reqwest::header::HeaderMap::new();
-    let token = reqwest::header::HeaderValue::from_str(token).unwrap();
+    let token = reqwest::header::HeaderValue::from_str(token)?;
     head.insert("Authorization", token);
 
     let form = reqwest::blocking::multipart::Form::new()
         .text("message", msg.to_owned())
-        .file("imageFile", img_path)
-        .unwrap();
+        .file("imageFile", img_path)?;
 
     let client = reqwest::blocking::Client::new();
 
-    let res = client
-        .post(url)
-        .headers(head)
-        // .form(&form)
-        .multipart(form)
-        .send()
-        .unwrap();
+    let res = client.post(url).headers(head).multipart(form).send()?;
     Ok(res)
 }
 
@@ -45,7 +38,7 @@ mod tests {
     fn notification_test() {
         let paths = crate::module::util::path::dir::create_app_sub_dir();
         let conf = crate::module::util::conf::toml::load(&paths.dir.data);
-        let res = send_line_notify_with_image("Rust", "asset/img/pylon_10m.jpg", conf);
+        let res = send_line_notify_with_image("Rust", "asset/img/pylon_10m.jpg", conf.unwrap());
         assert_eq!(res.unwrap().status(), StatusCode::OK);
     }
 }

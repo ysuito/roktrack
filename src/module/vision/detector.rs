@@ -69,61 +69,66 @@ pub mod onnx {
         ///
         pub fn new() -> Self {
             Self {
-                sessions: Self::build_pylon_sessions(),
+                sessions: Self::build_pylon_sessions().expect("Can't initialize pylon sessions"),
                 session_type: SessionType::Sz320,
             }
         }
         /// get session
         ///
-        pub fn get_session(name: &str, model_path: &str) -> Session {
+        pub fn get_session(
+            name: &str,
+            model_path: &str,
+        ) -> Result<Session, Box<dyn std::error::Error>> {
             let environment = Environment::builder()
                 .with_name(name)
                 .with_log_level(LoggingLevel::Warning)
                 .with_execution_providers([ExecutionProvider::CPU(Default::default())])
-                .build()
-                .unwrap()
+                .build()?
                 .into_arc();
-            SessionBuilder::new(&environment)
-                .unwrap()
-                .with_optimization_level(GraphOptimizationLevel::Level1)
-                .unwrap()
-                .with_intra_threads(8)
-                .unwrap()
-                .with_model_from_file(model_path)
-                .unwrap()
+            let session = SessionBuilder::new(&environment)?
+                .with_optimization_level(GraphOptimizationLevel::Level1)?
+                .with_intra_threads(8)?
+                .with_model_from_file(model_path)?;
+            Ok(session)
         }
         /// Build Pylon Session Bundle
         ///
-        pub fn build_pylon_sessions() -> Sessions {
-            Sessions::Pylon {
-                sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL),
-                sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL),
-            }
+        pub fn build_pylon_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+            let sessions = Sessions::Pylon {
+                sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL)?,
+                sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL)?,
+            };
+            Ok(sessions)
         }
         /// Build Pylon OCR Session Bundle
         ///
-        pub fn build_pylon_ocr_sessions() -> Sessions {
-            Sessions::PylonOcr {
-                sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL),
-                sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL),
-                ocr: Self::get_session("pylon_ocr", define::path::DIGIT_OCR_96_MODEL),
-            }
+        pub fn build_pylon_ocr_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+            let sessions = Sessions::PylonOcr {
+                sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL)?,
+                sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL)?,
+                ocr: Self::get_session("pylon_ocr", define::path::DIGIT_OCR_96_MODEL)?,
+            };
+            Ok(sessions)
         }
         /// Build Animal Session Bundle
         ///
-        pub fn build_animal_sessions() -> Sessions {
-            Sessions::Animal {
-                sz320: Self::get_session("animal_sz320", define::path::ANIMAL_320_MODEL),
-                sz640: Self::get_session("animal_sz640", define::path::ANIMAL_640_MODEL),
-            }
+        pub fn build_animal_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+            let sessions = Sessions::Animal {
+                sz320: Self::get_session("animal_sz320", define::path::ANIMAL_320_MODEL)?,
+                sz640: Self::get_session("animal_sz640", define::path::ANIMAL_640_MODEL)?,
+            };
+            Ok(sessions)
         }
         /// Infer
         ///
-        pub fn infer(&self, impath: &str, session_type: SessionType) -> Vec<super::Detection> {
+        pub fn infer(
+            &self,
+            impath: &str,
+            session_type: SessionType,
+        ) -> Result<Vec<super::Detection>, Box<dyn std::error::Error>> {
             let sz = session_type.get_imgsz();
             // Load image and resize to model's shape, converting to RGB format
-            let img: ImageBuffer<Rgb<u8>, Vec<u8>> = image::open(Path::new(impath))
-                .unwrap()
+            let img: ImageBuffer<Rgb<u8>, Vec<u8>> = image::open(Path::new(impath))?
                 .resize_exact(sz, sz, FilterType::Nearest)
                 .to_rgb8();
 
@@ -156,14 +161,13 @@ pub mod onnx {
                 },
             };
 
-            let tensor = vec![Value::from_array(session.allocator(), &array).unwrap()];
+            let tensor = vec![Value::from_array(session.allocator(), &array)?];
 
-            let outs = session.run(tensor).unwrap();
+            let outs = session.run(tensor)?;
             let out = outs
                 .get(0)
                 .unwrap()
-                .try_extract::<f32>()
-                .unwrap()
+                .try_extract::<f32>()?
                 .view()
                 .t()
                 .into_owned();
@@ -188,7 +192,7 @@ pub mod onnx {
             impath: &str,
             dets: Vec<Detection>,
             property: RoktrackProperty,
-        ) -> Vec<Detection> {
+        ) -> Result<Vec<Detection>, Box<dyn std::error::Error>> {
             // For result
             let mut new_dets = dets.clone();
 
@@ -204,7 +208,7 @@ pub mod onnx {
                 property.conf.camera.height as f64,
             );
             // Load original image (full resolution)
-            let mut img = Reader::open(impath).unwrap().decode().unwrap();
+            let mut img = Reader::open(impath)?.decode()?;
             // Iterates dets.
             for (i, det) in dets.iter().enumerate() {
                 // Get the relative position of bbox
@@ -228,7 +232,7 @@ pub mod onnx {
                     // Save the crop image to the specified file path.
                     let _save_res = crop.save(property.path.img.crop.clone());
                     let ocr_dets =
-                        self.infer(property.path.img.crop.clone().as_str(), SessionType::Ocr);
+                        self.infer(property.path.img.crop.clone().as_str(), SessionType::Ocr)?;
                     // Collect detected digits
                     let mut digits = vec![];
                     for ocr_det in ocr_dets {
@@ -237,12 +241,14 @@ pub mod onnx {
                     new_dets[i].ids = digits;
                 }
             }
-            new_dets
+            Ok(new_dets)
         }
     }
 
     #[warn(clippy::manual_retain)]
-    fn convert_yolo_fmt(out: Array<f32, IxDyn>) -> Vec<super::Detection> {
+    fn convert_yolo_fmt(
+        out: Array<f32, IxDyn>,
+    ) -> Result<Vec<super::Detection>, Box<dyn std::error::Error>> {
         // https://github.com/AndreyGermanov/yolov8_onnx_rust
         let mut bboxes = vec![];
         let output = out.slice(s![.., .., 0]);
@@ -283,7 +289,7 @@ pub mod onnx {
             })
         }
         bboxes.sort_by(|box1, box2| box2.prob.total_cmp(&box1.prob));
-        merge_bboxes(bboxes)
+        Ok(merge_bboxes(bboxes))
     }
 
     /// Function to compute the IoU of two rectangles.
@@ -618,31 +624,31 @@ mod tests {
     fn roktrack_detect_object_test() {
         let detector = onnx::YoloV8::new();
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
-        assert!(dets.len() == 2);
+        assert!(dets.unwrap().len() == 2);
         let dets = detector.infer("asset/img/person.jpg", onnx::SessionType::Sz320);
-        assert!(dets.len() == 1);
+        assert!(dets.unwrap().len() == 1);
     }
 
     #[test]
     fn animal_detect_object_test() {
         let mut detector = onnx::YoloV8::new();
-        detector.sessions = onnx::YoloV8::build_animal_sessions();
-        let mut dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320);
-        let dets = AnimalClasses::filter(&mut dets, AnimalClasses::BEAR.to_u32());
+        detector.sessions = onnx::YoloV8::build_animal_sessions().unwrap();
+        let dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320);
+        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::BEAR.to_u32());
         assert!(dets.len() == 1);
-        let mut dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320);
-        let dets = AnimalClasses::filter(&mut dets, AnimalClasses::MONKEY.to_u32());
+        let dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320);
+        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::MONKEY.to_u32());
         assert!(dets.len() == 2);
     }
 
     #[test]
     fn pylon_detect_resolution_test() {
         let detector = onnx::YoloV8::new();
-        let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
-        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON.to_u32());
+        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
+        let dets = RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32());
         assert_eq!(dets.len(), 2);
-        let mut dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640);
-        let dets = RoktrackClasses::filter(&mut dets, RoktrackClasses::PYLON.to_u32());
+        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640);
+        let dets = RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32());
         assert_eq!(dets.len(), 2);
     }
 }

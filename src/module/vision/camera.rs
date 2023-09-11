@@ -26,7 +26,7 @@ impl V4l2Camera {
     /// A `V4l2Camera` instance.
     ///
     pub fn new(property: RoktrackProperty) -> Self {
-        let mut cap = Camera::new("/dev/video0").unwrap();
+        let mut cap = Camera::new("/dev/video0").expect("Can't create camera.");
 
         // Configure and start the camera with specified settings.
         cap.start(&Config {
@@ -39,7 +39,7 @@ impl V4l2Camera {
             nbuffers: 1,
             ..Default::default()
         })
-        .unwrap();
+        .expect("Can't start capturing");
 
         Self { cap, property }
     }
@@ -48,14 +48,16 @@ impl V4l2Camera {
     ///
     /// This method captures a frame from the camera and saves it to a file specified
     /// in the `RoktrackProperty`. The images are saved with a specific filename format.
-    pub fn take_picture(&self) {
+    pub fn take_picture(&self) -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..3 {
             let _ = self.cap.capture(); // Grab a frame to reduce delay.
         }
-        let frame = self.cap.capture().unwrap(); // get picture
+        let frame = self.cap.capture()?; // get picture
 
         // Save the original image to the specified file path.
-        let mut file = fs::File::create(self.property.path.img.last.clone()).unwrap();
-        file.write_all(&frame[..]).unwrap();
+        let mut file = fs::File::create(self.property.path.img.last.clone())?;
+        file.write_all(&frame[..])?;
+
+        Ok(())
     }
 }

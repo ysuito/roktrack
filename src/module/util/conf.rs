@@ -18,26 +18,26 @@ pub mod toml {
     ///
     /// * `dir` - The directory where the configuration file is located or should be created.
     ///
-    pub fn load(dir: &str) -> super::Config {
+    pub fn load(dir: &str) -> Result<super::Config, Box<dyn std::error::Error>> {
         // Check if the config file exists
         let path = Path::new(dir).join(define::path::CONF_FILE);
         let exist: bool = path.is_file();
 
         if !exist {
             // Create the default config if it doesn't exist
-            let config: super::Config = toml::from_str(DEFAULT_CONFIG).unwrap();
-            let toml_str = toml::to_string(&config).unwrap();
-            let mut file = File::create(&path).unwrap();
-            file.write_all(toml_str.as_bytes()).unwrap();
+            let config: super::Config = toml::from_str(DEFAULT_CONFIG)?;
+            let toml_str = toml::to_string(&config)?;
+            let mut file = File::create(&path)?;
+            file.write_all(toml_str.as_bytes())?;
         }
 
         // Load the config
-        let conf_str: String = std::fs::read_to_string(&path).unwrap();
+        let conf_str: String = std::fs::read_to_string(&path)?;
         let setting: Result<super::Config, toml::de::Error> = toml::from_str(&conf_str);
 
         match setting {
-            Ok(conf) => conf,
-            Err(e) => panic!("Failed to parse TOML: {}", e),
+            Ok(conf) => Ok(conf),
+            Err(_e) => Err("Can't parse toml.".into()),
         }
     }
 
@@ -48,11 +48,12 @@ pub mod toml {
     /// * `dir` - The directory where the configuration file should be saved.
     /// * `conf` - The configuration data to be saved.
     ///
-    pub fn save(dir: &str, conf: super::Config) {
-        let toml_str = toml::to_string(&conf).unwrap();
+    pub fn save(dir: &str, conf: super::Config) -> Result<(), Box<dyn std::error::Error>> {
+        let toml_str = toml::to_string(&conf)?;
         let path = Path::new(dir).join(define::path::CONF_FILE);
-        let mut file = File::create(path.to_str().unwrap()).unwrap();
-        file.write_all(toml_str.as_bytes()).unwrap();
+        let mut file = File::create(path.to_str().unwrap())?;
+        file.write_all(toml_str.as_bytes())?;
+        Ok(())
     }
 }
 
@@ -199,6 +200,6 @@ mod tests {
     fn run_load() {
         fs::create_dir_all(Path::new("/tmp/roktracktest/")).unwrap();
         let res = toml::load("/tmp/roktracktest/");
-        assert_eq!(res.system.lang, "ja");
+        assert_eq!(res.unwrap().system.lang, "ja");
     }
 }

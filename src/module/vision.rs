@@ -80,19 +80,19 @@ impl RoktrackVision {
                 Ok(VisionMgmtCommand::SwitchSessionPylon) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylon Received");
                     local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_pylon_sessions();
+                        detector::onnx::YoloV8::build_pylon_sessions().unwrap();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionPylonOcr) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylonOcr Received");
                     // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
                     local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_pylon_ocr_sessions();
+                        detector::onnx::YoloV8::build_pylon_ocr_sessions().unwrap();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionAnimal) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionAnimal Received");
                     // If the command is SwitchSessionAnimal, lock the inner field and update the detector sessions with the animal sessions
                     local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_animal_sessions();
+                        detector::onnx::YoloV8::build_animal_sessions().unwrap();
                 }
                 Ok(VisionMgmtCommand::SwitchSz320) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSz320 Received");
@@ -118,26 +118,34 @@ impl RoktrackVision {
             // Take an image using the camera
             {
                 log::debug!("Vision Camera Process Start");
-                local_self.lock().unwrap().cam.take_picture(); // Lock the inner field and call the take method on the camera field
+                let res_take = local_self.lock().unwrap().cam.take_picture(); // Lock the inner field and call the take method on the camera field
                 log::debug!("Vision Camera Process End");
-                let session_type = local_self.lock().unwrap().det.session_type.clone(); // Lock the inner field and clone the session type from the detector field
-                let mut dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
-                    .lock()
-                    .unwrap()
-                    .det
-                    .infer(&local_property.path.img.last, session_type);
-                log::debug!("Vision Detected: {:?}", dets.clone());
-                // Handle ocr
-                let ocr_support = local_self.lock().unwrap().det.support_ocr();
-                if ocr_support {
-                    dets = local_self.lock().unwrap().det.ocr(
-                        &local_property.path.img.last,
-                        dets.clone(),
-                        local_property.as_ref().clone(),
-                    );
-                    log::debug!("Vision Detected With Ocr: {:?}", dets.clone());
+                if res_take.is_ok() {
+                    let session_type = local_self.lock().unwrap().det.session_type.clone(); // Lock the inner field and clone the session type from the detector field
+                    let dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
+                        .lock()
+                        .unwrap()
+                        .det
+                        .infer(&local_property.path.img.last, session_type);
+                    let mut dets = dets.unwrap();
+                    log::debug!("Vision Detected: {:?}", dets.clone());
+                    // Handle ocr
+                    let ocr_support = local_self.lock().unwrap().det.support_ocr();
+                    if ocr_support {
+                        dets = local_self
+                            .lock()
+                            .unwrap()
+                            .det
+                            .ocr(
+                                &local_property.path.img.last,
+                                dets.clone(),
+                                local_property.as_ref().clone(),
+                            )
+                            .unwrap();
+                        log::debug!("Vision Detected With Ocr: {:?}", dets.clone());
+                    }
+                    tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
                 }
-                tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
             }
             log::debug!("Vision Inference Loop End");
         })
