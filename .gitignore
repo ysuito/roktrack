@@ -2,3 +2,7 @@
 /Cargo.lock
 run.sh
 memo.md
+/release
+release.sh
+release.zip
+roktrack-v*.zip
