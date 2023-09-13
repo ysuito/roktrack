@@ -1,24 +1,33 @@
-# Roktrack
-Roktrack is a pylon-guided robotic mower.
+# Roktrack Pylon-Guided Robotic Mower
+<div>
+  <img src="asset/img/swarm_horizonal.JPG">
+</div>
 
+Open source robotic mower using image recognition technology. No GPS. No boundary wire.
+
+- Just place the pylon and flip the switch.
+- Solar charging and AC charging.
+- As a surveillance camera that can detect person and animals while charging.
+
+## Demo
+### Single Operation
 <div>
   <img src="asset/img/one_node_mowing.gif" height="400" width="600">
 </div>
 
+### Parallel Operation
+<div>
+  <img src="asset/img/four_node_mowing.gif" height="400" width="600">
+</div>
+
 # Requirement
+* Raspberry Pi 3A+ or Raspberry Pi 4B
 * libv4l-dev
 * libssl-dev
-* Raspberry Pi 3A+ or 4B
-* Rust
 
 # Installation
 ```bash
-sudo apt install libv4l-dev
-git clone https://github.com/ysuito/roktrack.git
-cd roktrack
-cargo b -r
-sudo cp target/release/libonnxruntime.so.1.15.1 /usr/lib/
-cp target/release/roktrack ./
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ysuito/roktrack/master/installation.sh | sh
 ```
 
 # Usage
@@ -28,10 +37,12 @@ sudo roktrack
 ```
 
 # License
-The source code is licensed GPL v3.0. The files under the assets directory are licensed CC BY-NC-SA 4.0,see LICENSE.
+The source code is licensed GPL v3.0. The files under the assets and hardware directories are licensed CC BY-NC-SA 4.0,see LICENSE.
 
 ## Links
-- https://hackaday.io/project/190977-roktrack-pylon-guided-mower
-- https://protopedia.net/prototype/3357
-- https://protopedia.net/prototype/3788
+### English
+- [hackaday.io](https://hackaday.io/project/190977-roktrack-pylon-guided-mower)
+### Japanese
+- [Roktrack1 protopedia](https://protopedia.net/prototype/3357)
+- [Roktrack2 protopedia](https://protopedia.net/prototype/3788)
 

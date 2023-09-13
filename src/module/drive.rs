@@ -34,7 +34,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
         Receiver<Vec<Detection>>,
     ) = mpsc::channel();
     // For BLE Communication
-    let (channel_neighbor_tx, channel_neighbor_rx): (Sender<Neighbor>, Receiver<Neighbor>) =
+    let (_channel_neighbor_tx, channel_neighbor_rx): (Sender<Neighbor>, Receiver<Neighbor>) =
         mpsc::channel();
     // For Device Thread (not used in this code)
     let (_channel_device_mgmt_tx, channel_device_mgmt_rx): (
@@ -47,7 +47,8 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
 
     // Start the BLE communication thread.
     let com = BleBroadCast::new();
-    let _com_handler = com.listen(channel_neighbor_tx);
+    // Receiving commands via BLE from the phone is disabled until the test is completed.
+    // let _com_handler = com.listen(channel_neighbor_tx);
 
     // Start the device thread.
     let mut device = crate::module::device::Roktrack::new(property.conf.clone());

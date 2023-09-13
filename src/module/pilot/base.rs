@@ -74,17 +74,17 @@ pub fn escape(
     device_lock.backward(2000);
     thread::sleep(time::Duration::from_millis(2000));
     match state.phase {
-        Phase::CCW => device_lock.left(500),
-        Phase::CW => device_lock.right(500),
+        Phase::CCW => device_lock.left(800),
+        Phase::CW => device_lock.right(800),
     };
-    thread::sleep(time::Duration::from_millis(500));
+    thread::sleep(time::Duration::from_millis(800));
     device_lock.forward(2000);
     thread::sleep(time::Duration::from_millis(2000));
     match state.phase {
-        Phase::CCW => device_lock.right(500),
-        Phase::CW => device_lock.left(500),
+        Phase::CCW => device_lock.right(800),
+        Phase::CW => device_lock.left(800),
     };
-    thread::sleep(time::Duration::from_millis(500));
+    thread::sleep(time::Duration::from_millis(1000));
     Ok(())
 }
 

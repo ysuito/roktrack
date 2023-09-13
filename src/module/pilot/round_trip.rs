@@ -129,8 +129,10 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
+        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
+        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None
