@@ -27,13 +27,15 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 
 # Installation
 ```bash
+sudo apt install -y libv4l-dev libssl-dev
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ysuito/roktrack/master/installation.sh | sh
 ```
 
 # Usage
 Surround the area to be mowed with pylons (traffic cones), place Roktrack and execute the following command.
 ```bash
-sudo roktrack
+cd roktrack
+sudo ./roktrack
 ```
 
 # License
