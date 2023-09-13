@@ -5,10 +5,10 @@
 
 set -u
 
-sudo apt install libv4l-dev libssl-dev
-git clone https://github.com/ysuito/roktrack.git
+mkdir roktrack
 cd roktrack
-# curl -O https://github.com/ysuito/roktrack/libonnxruntime.so.1.15.1
-# sudo cp libonnxruntime.so.1.15.1 /usr/lib/
-# rm libonnxruntime.so.1.15.1
-# curl -O https://github.com/ysuito/roktrack/roktrack
+curl -OL https://github.com/ysuito/roktrack/releases/download/v0.1.0-alpha/roktrack-v0.1.0-alpha.zip
+unzip roktrack-v0.1.0-alpha.zip
+sudo cp libonnxruntime.so.1.15.1 /usr/lib/
+rm libonnxruntime.so.1.15.1
+rm roktrack-v0.1.0-alpha.zip
