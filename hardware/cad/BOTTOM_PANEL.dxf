@@ -23,9 +23,9 @@ $INSBASE
   9
 $EXTMIN
  10
--125.0078056210307
+-125
  20
--100.0012488993639
+-100
  30
 0
   9
@@ -91,7 +91,7 @@ STANDARD
   9
 $CLAYER
   8
-draft
+angle9
   9
 $CELTYPE
   6
@@ -1121,9 +1121,9 @@ AcDbViewportTableRecord
  21
 1
  12
-197.4245293012996
+104.1198340680998
  22
-77.73062779908514
+62.47190044085986
  13
 0
  23
@@ -1149,9 +1149,9 @@ AcDbViewportTableRecord
  37
 0
  40
-345.2817017452115
+242.4599448108107
  41
-2.125611745513866
+1.592997811816192
  42
 50
  43
@@ -2121,7 +2121,7 @@ Center (.15x) ___ _ ___ _ ___ _ ___ _ ___ _ ___
  73
     4
  40
-7.62
+7.619999999999999
  49
 4.7625
  74
@@ -2351,7 +2351,7 @@ AcDbLayerTableRecord
   2
 draft
  70
-    0
+    1
  62
     3
   6
@@ -2735,7 +2735,7 @@ AcDbSymbolTableRecord
 100
 AcDbBlockTableRecord
   2
-*D1
+*D2
  70
     0
 280
@@ -2753,7 +2753,7 @@ AcDbSymbolTableRecord
 100
 AcDbBlockTableRecord
   2
-*D2
+*D1
  70
     0
 280
@@ -2850,42 +2850,6 @@ BLOCK
 55
 330
 54
-100
-AcDbEntity
-  8
-0
-100
-AcDbBlockBegin
-  2
-*D1
- 70
-    1
- 10
-0
- 20
-0
-  3
-*D1
-  1
-
-  0
-ENDBLK
-  5
-56
-330
-54
-100
-AcDbEntity
-  8
-0
-100
-AcDbBlockEnd
-  0
-BLOCK
-  5
-58
-330
-57
 100
 AcDbEntity
   8
@@ -3102,6 +3066,42 @@ AcDbLine
 -35.00000000000001
  21
 67.46681300275873
+  0
+ENDBLK
+  5
+56
+330
+54
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockEnd
+  0
+BLOCK
+  5
+58
+330
+57
+100
+AcDbEntity
+  8
+0
+100
+AcDbBlockBegin
+  2
+*D1
+ 70
+    1
+ 10
+0
+ 20
+0
+  3
+*D1
+  1
+
   0
 ENDBLK
   5
@@ -4220,6 +4220,8 @@ AcDbDimension
    32
  71
     5
+ 72
+    0
   3
 Standard
  53

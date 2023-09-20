@@ -194,6 +194,17 @@ impl Chassis for RoktrackInner {
     }
 }
 
+/// Device destructor(but not called)
+impl Drop for RoktrackInner {
+    /// This implementation of the `Drop` trait defines the behavior when an instance of `RoktrackInner` is being dropped,
+    /// typically when it goes out of scope or is explicitly destroyed. In this case, it ensures that the motor stops
+    /// its operation by calling the `stop()` method.
+    fn drop(&mut self) {
+        log::debug!("Dropping RoktrackInner");
+        self.stop();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

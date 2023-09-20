@@ -41,8 +41,17 @@ impl PilotHandler for FollowPerson {
         log::debug!("Start FollowPerson Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
-            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
+            Some(SystemRisk::Bumped) => {
+                let res = base::escape(state, device);
+                device.inner.clone().lock().unwrap().speak("bumped");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
@@ -98,10 +107,8 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None

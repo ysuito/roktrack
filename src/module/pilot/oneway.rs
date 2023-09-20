@@ -40,8 +40,17 @@ impl PilotHandler for OneWay {
         log::debug!("Start OneWay Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
-            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
+            Some(SystemRisk::Bumped) => {
+                let res = base::escape(state, device);
+                device.inner.clone().lock().unwrap().speak("bumped");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
@@ -50,10 +59,18 @@ impl PilotHandler for OneWay {
         }
 
         // Assess and handle vision safety
-        let vision_risk = match assess_vision_risk(detections, device) {
-            Some(VisionRisk::PersonDetected) | Some(VisionRisk::RoktrackDetected) => {
-                Some(base::stop(device))
+        let vision_risk = match assess_vision_risk(detections) {
+            Some(VisionRisk::PersonDetected) => {
+                let res = base::stop(device);
+                device
+                    .inner
+                    .clone()
+                    .lock()
+                    .unwrap()
+                    .speak("person_detecting");
+                Some(res)
             }
+            Some(VisionRisk::RoktrackDetected) => Some(base::stop(device)),
             None => None,
         };
         if vision_risk.is_some() {
@@ -110,10 +127,8 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None
@@ -128,14 +143,8 @@ enum VisionRisk {
 }
 /// Identify vision-related risks
 ///
-fn assess_vision_risk(dets: &mut [Detection], device: &Roktrack) -> Option<VisionRisk> {
+fn assess_vision_risk(dets: &mut [Detection]) -> Option<VisionRisk> {
     if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON.to_u32()).is_empty() {
-        device
-            .inner
-            .clone()
-            .lock()
-            .unwrap()
-            .speak("person_detecting");
         Some(VisionRisk::PersonDetected)
     } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK.to_u32()).is_empty() {
         Some(VisionRisk::RoktrackDetected)
