@@ -67,7 +67,6 @@ impl RoktrackVision {
             // Wait for a short time before repeating the loop
             thread::sleep(Duration::from_millis(10));
 
-            log::debug!("Vision Inference Loop Start");
             // Read the management commands from the receiver and match them
             match rx.try_recv() {
                 Ok(VisionMgmtCommand::Off) => {
@@ -147,7 +146,6 @@ impl RoktrackVision {
                     tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
                 }
             }
-            log::debug!("Vision Inference Loop End");
         })
     }
 }

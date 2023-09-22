@@ -47,11 +47,6 @@ impl BleBroadCast {
         neighbor.mac = mac.clone();
         neighbor.manufacturer_id = 65535;
         neighbor.rssi = *rssi;
-        log::debug!(
-            "BLE BroadCast Received From: {:?}, Content: {:?}",
-            mac,
-            data
-        );
         neighbor
     }
 
@@ -79,7 +74,6 @@ impl BleBroadCast {
                     let data = buf.replace("   ", " ").replace("> ", "").replace(' ', "");
                     // To byte
                     let bytes = hex::decode(data.clone());
-                    log::debug!("BLE BroadCast Received: {:?}", data);
                     if let Ok(b) = bytes {
                         if b.len() > 22 && b[0] == 4 && b[1] == 62 && b[20] == 255 && b[21] == 255 {
                             let neighbor = Self::bytes_to_neighbor(&b);

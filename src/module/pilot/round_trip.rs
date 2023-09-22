@@ -57,7 +57,7 @@ impl PilotHandler for RoundTrip {
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -74,10 +74,10 @@ impl PilotHandler for RoundTrip {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
@@ -90,11 +90,11 @@ impl PilotHandler for RoundTrip {
             Some(ActPhase::ReachMarker) => {
                 self.target_object = match self.target_object {
                     RoundTripObject::Marker => {
-                        log::debug!("Target Object Switch. Marker -> Person");
+                        log::info!("Target Object Switch. Marker -> Person");
                         RoundTripObject::Person
                     }
                     RoundTripObject::Person => {
-                        log::debug!("Target Object Switch. Person -> Marker");
+                        log::info!("Target Object Switch. Person -> Marker");
                         RoundTripObject::Marker
                     }
                 };

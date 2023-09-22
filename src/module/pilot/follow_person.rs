@@ -55,7 +55,7 @@ impl PilotHandler for FollowPerson {
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -66,10 +66,10 @@ impl PilotHandler for FollowPerson {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
@@ -82,7 +82,7 @@ impl PilotHandler for FollowPerson {
             Some(ActPhase::Stand) => base::stand(state, tx),
             Some(ActPhase::StartTurn) => base::start_turn(state, device),
             Some(ActPhase::ReachMarker) => {
-                log::debug!("Reach Marker pausing.");
+                log::info!("Reach Marker pausing.");
                 device.inner.lock().unwrap().pause();
                 Ok(())
             }

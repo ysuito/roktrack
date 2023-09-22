@@ -224,7 +224,20 @@ fn command_to_handler(
                     None
                 }
             }
-            ParentMsg::RoundTrip => None,
+            ParentMsg::RoundTrip => {
+                if !state.state && state.mode != Modes::RoundTrip {
+                    device
+                        .inner
+                        .clone()
+                        .lock()
+                        .unwrap()
+                        .speak("receive_roundtripmode");
+                    state.mode = Modes::RoundTrip;
+                    mode_to_handler(state.mode, tx, conf)
+                } else {
+                    None
+                }
+            }
             ParentMsg::FollowPerson => {
                 if !state.state && state.mode != Modes::FollowPerson {
                     device

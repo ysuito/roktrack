@@ -52,7 +52,7 @@ impl PilotHandler for MonitorPerson {
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -68,7 +68,7 @@ impl PilotHandler for MonitorPerson {
             // Get now.
             let utc = chrono::Utc::now();
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {
-                log::debug!("Interval time has elapsed. Re-detection is notified.");
+                log::info!("Interval time has elapsed. Re-detection is notified.");
                 self.last_detected_time = utc.timestamp_millis() as u64;
                 let _ = send_line_notify_with_image(
                     "Person detected.",

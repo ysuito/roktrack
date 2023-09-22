@@ -86,7 +86,7 @@ impl PilotHandler for Fill {
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -106,7 +106,7 @@ impl PilotHandler for Fill {
             None => None,
         };
         if vision_risk.is_some() {
-            log::debug!("Vision Risk Exists. Continue.");
+            log::warn!("Vision Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -118,7 +118,7 @@ impl PilotHandler for Fill {
 
         // Get the first detected marker or a default one
         let marker = select_marker(property, state, detections, device);
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
@@ -127,7 +127,7 @@ impl PilotHandler for Fill {
         state.constant = base::calc_constant(state.constant, state.img_height, marker.h);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {

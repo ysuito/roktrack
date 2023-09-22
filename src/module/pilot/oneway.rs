@@ -54,7 +54,7 @@ impl PilotHandler for OneWay {
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -74,7 +74,7 @@ impl PilotHandler for OneWay {
             None => None,
         };
         if vision_risk.is_some() {
-            log::debug!("Vision Risk Exists. Continue.");
+            log::warn!("Vision Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -89,13 +89,13 @@ impl PilotHandler for OneWay {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
