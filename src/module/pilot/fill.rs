@@ -72,24 +72,41 @@ impl PilotHandler for Fill {
         log::debug!("Start Fill Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
-            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
+            Some(SystemRisk::Bumped) => {
+                let res = base::escape(state, device);
+                device.inner.clone().lock().unwrap().speak("bumped");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
         // Assess and handle vision safety
-        let vision_risk = match assess_vision_risk(detections, device) {
-            Some(VisionRisk::PersonDetected) | Some(VisionRisk::RoktrackDetected) => {
-                Some(base::stop(device))
+        let vision_risk = match assess_vision_risk(detections) {
+            Some(VisionRisk::PersonDetected) => {
+                let res = base::stop(device);
+                device
+                    .inner
+                    .clone()
+                    .lock()
+                    .unwrap()
+                    .speak("person_detecting");
+                Some(res)
             }
+            Some(VisionRisk::RoktrackDetected) => Some(base::stop(device)),
             None => None,
         };
         if vision_risk.is_some() {
-            log::debug!("Vision Risk Exists. Continue.");
+            log::warn!("Vision Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -101,7 +118,7 @@ impl PilotHandler for Fill {
 
         // Get the first detected marker or a default one
         let marker = select_marker(property, state, detections, device);
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
         device.inner.clone().lock().unwrap().work_motor.cw();
@@ -110,7 +127,7 @@ impl PilotHandler for Fill {
         state.constant = base::calc_constant(state.constant, state.img_height, marker.h);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
@@ -144,10 +161,8 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None
@@ -162,14 +177,8 @@ enum VisionRisk {
 }
 /// Identify vision-related risks
 ///
-fn assess_vision_risk(dets: &mut [Detection], device: &Roktrack) -> Option<VisionRisk> {
+fn assess_vision_risk(dets: &mut [Detection]) -> Option<VisionRisk> {
     if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON.to_u32()).is_empty() {
-        device
-            .inner
-            .clone()
-            .lock()
-            .unwrap()
-            .speak("person_detecting");
         Some(VisionRisk::PersonDetected)
     } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK.to_u32()).is_empty() {
         Some(VisionRisk::RoktrackDetected)

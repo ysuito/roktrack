@@ -9,6 +9,9 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 - Solar charging and AC charging.
 - As a surveillance camera that can detect person and animals while charging.
 
+> [!WARNING]  
+> High-speed rotating blades are very dangerous. If you make this machine by yourself, please be very careful and ensure the safety of your surroundings before using it.
+
 ## Demo
 ### Single Operation
 <div>

@@ -1,5 +1,4 @@
-//! Provides Motor Control functionality.
-
+/// Provides Motor Control functionality.
 use rppal::gpio::Gpio;
 
 /// Defines the basic Motor trait.
@@ -66,6 +65,7 @@ impl Motor for DriveMotor {
     }
 }
 
+/// Motor destructor(but not called)
 impl Drop for DriveMotor {
     /// This implementation of the `Drop` trait defines the behavior when an instance of `DriveMotor` is being dropped,
     /// typically when it goes out of scope or is explicitly destroyed. In this case, it ensures that the motor stops
@@ -125,11 +125,13 @@ impl Motor for WorkMotor {
     }
 }
 
+/// Motor destructor(but not called)
 impl Drop for WorkMotor {
     /// This implementation of the `Drop` trait defines the behavior when an instance of `WorkMotor` is being dropped,
     /// typically when it goes out of scope or is explicitly destroyed. In this case, it ensures that the motor stops
     /// its operation by calling the `stop()` method.
     fn drop(&mut self) {
+        log::debug!("Dropping RoktrackInner");
         self.stop();
     }
 }

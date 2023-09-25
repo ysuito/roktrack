@@ -4,10 +4,8 @@
 
 use crate::module::pilot::Modes;
 use bitreader::BitReader;
-use btleplug::api::{bleuuid::BleUuid, Central, CentralEvent, Manager as _, ScanFilter};
-use btleplug::platform::{Adapter, Manager};
-use futures::stream::StreamExt;
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -28,96 +26,72 @@ impl Default for BleBroadCast {
 impl BleBroadCast {
     /// Creates a new instance of BLE Broadcast Handler
     pub fn new() -> Self {
+        // Scan on
+        Command::new("hcitool")
+            .args(["lescan", "--duplicates"])
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("Can't scan on.");
         Self {
             inner: Arc::new(Mutex::new(BleBroadCastInner::new())),
         }
     }
 
+    pub fn bytes_to_neighbor(bytes: &[u8]) -> Neighbor {
+        let mac: Vec<String> = bytes[7..13].iter().map(ToString::to_string).collect();
+        let mac = mac.join(":");
+        let rssi = bytes.last().unwrap();
+        let data = &bytes[23..];
+
+        let mut neighbor = Neighbor::from_manufacture_data(data);
+        neighbor.mac = mac.clone();
+        neighbor.manufacturer_id = 65535;
+        neighbor.rssi = *rssi;
+        neighbor
+    }
+
     /// Listens to BLE advertisements and sends neighbor information via a channel.
     ///
-    /// /// https://github.com/deviceplug/btleplug/blob/master/examples/discover_adapters_peripherals.rs
     pub fn listen(&self, tx: Sender<Neighbor>) -> JoinHandle<()> {
         thread::spawn(move || {
             log::debug!("Com Thread Started");
-            // Create an asynchronous runtime.
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
+            // Execute as a child process.
+            let mut child = Command::new("hcidump")
+                .args(["--raw"])
+                .stdout(Stdio::piped())
+                .spawn()
+                .expect("failed to start `hcidump`");
+            // Get output handler for stdout
+            let stdout = child.stdout.take().unwrap();
 
-            // Run asynchronous tasks at runtime.
-            rt.block_on(async {
-                let manager = Manager::new().await.unwrap();
-
-                // Get the first Bluetooth adapter.
-                let central = Self::get_central(&manager).await;
-
-                // Create an event stream for the adapter.
-                let mut events = central.events().await.unwrap();
-
-                // Start scanning for devices.
-                central.start_scan(ScanFilter::default()).await.unwrap();
-
-                while let Some(event) = events.next().await {
-                    match event {
-                        CentralEvent::DeviceDiscovered(id) => {
-                            format!("DeviceDiscovered: {:?}", id);
+            // Get output one line at a time
+            let reader = BufReader::new(stdout);
+            let mut buf = String::from("");
+            for line in reader.lines() {
+                let new_line = line.unwrap();
+                if new_line.starts_with("> ") {
+                    // Format
+                    let data = buf.replace("   ", " ").replace("> ", "").replace(' ', "");
+                    // To byte
+                    let bytes = hex::decode(data.clone());
+                    if let Ok(b) = bytes {
+                        if b.len() > 22 && b[0] == 4 && b[1] == 62 && b[20] == 255 && b[21] == 255 {
+                            let neighbor = Self::bytes_to_neighbor(&b);
+                            log::debug!("BLE BroadCast Neighbor: {:?}", neighbor);
+                            tx.send(neighbor).unwrap();
                         }
-                        CentralEvent::DeviceConnected(id) => {
-                            format!("DeviceConnected: {:?}", id);
-                        }
-                        CentralEvent::DeviceDisconnected(id) => {
-                            format!("DeviceDisconnected: {:?}", id);
-                        }
-                        CentralEvent::ManufacturerDataAdvertisement {
-                            id,
-                            manufacturer_data,
-                        } => {
-                            log::debug!(
-                                "id:{}, key:{:?}, data:{:?}",
-                                id.clone().to_string(),
-                                *manufacturer_data.keys().last().unwrap(),
-                                manufacturer_data.values().last().unwrap()
-                            );
-                            let manufacturer_id: u16 = *manufacturer_data.keys().last().unwrap();
-                            let data: &Vec<u8> = manufacturer_data.values().last().unwrap();
-                            if manufacturer_id == 65535 {
-                                // Get the MAC address.
-                                let mut mac_addr: String = id.to_string();
-                                mac_addr = mac_addr.replace("hci0/dev_", "");
-                                mac_addr = mac_addr.replace('_', ":");
-
-                                // Generate neighbor information.
-                                let mut neighbor = Neighbor::from_manufacture_data(data);
-                                neighbor.mac = mac_addr.clone();
-                                neighbor.manufacturer_id = manufacturer_id;
-                                tx.send(neighbor).unwrap();
-                                log::debug!(
-                                    "BLE BroadCast Received From: {:?}, Content: {:?}",
-                                    mac_addr,
-                                    data
-                                );
-                            }
-                        }
-                        CentralEvent::ServiceDataAdvertisement { id, service_data } => {
-                            format!("ServiceDataAdvertisement: {:?}, {:?}", id, service_data);
-                        }
-                        CentralEvent::ServicesAdvertisement { id, services } => {
-                            let services: Vec<String> =
-                                services.into_iter().map(|s| s.to_short_string()).collect();
-                            format!("ServicesAdvertisement: {:?}, {:?}", id, services);
-                        }
-                        _ => {}
                     }
+                    // New buf
+                    buf = new_line;
+                } else if !buf.is_empty() {
+                    // Append content to buf
+                    buf += &new_line;
+                } else {
+                    buf = String::from("");
                 }
-            });
+            }
+            log::debug!("Com Thread Exit Loop");
         })
-    }
-
-    /// Get the first available Bluetooth adapter.
-    async fn get_central(manager: &Manager) -> Adapter {
-        let adapters = manager.adapters().await.unwrap();
-        adapters.into_iter().next().unwrap()
     }
 }
 
@@ -177,7 +151,7 @@ impl BleBroadCastInner {
 #[derive(Debug, Clone)]
 pub struct Neighbor {
     pub timestamp: String,
-    pub rssi: i8,
+    pub rssi: u8,
     pub mac: String,
     pub manufacturer_id: u16,
     pub identifier: u8,
@@ -195,15 +169,15 @@ impl Neighbor {
         // Parse data elements.
         // Since the first 3 bytes of the data acquired by btleplug are filled with FF,
         // the data should be acquired from the 4th byte.
-        let identifier = data[3];
-        let buf = [data[4]];
+        let identifier = data[0];
+        let buf = [data[1]];
         let mut bit_reader = BitReader::new(&buf);
         let state: bool = bit_reader.read_u8(1).unwrap() != 0;
         let rest: u8 = bit_reader.read_u8(7).unwrap();
-        let pi_temp = data[5];
-        let mode = data[6];
-        let msg = data[7];
-        let dest = data[8];
+        let pi_temp = data[2];
+        let mode = data[3];
+        let msg = data[4];
+        let dest = data[5];
 
         // Set neighbor information.
         Self {

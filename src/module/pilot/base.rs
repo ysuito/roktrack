@@ -276,7 +276,7 @@ pub fn invert_phase(
     state.invert_phase();
     // Pause the Roktrack's movement
     device.inner.clone().lock().unwrap().pause();
-    log::debug!("Phase Inverted. Pausing... new_phase: {:?}", state.phase);
+    log::info!("Phase Inverted. Pausing... new_phase: {:?}", state.phase);
     Ok(())
 }
 
@@ -300,7 +300,7 @@ pub fn mission_complete(
     state.state = false;
     // Stop the Roktrack's movement
     device.inner.clone().lock().unwrap().stop();
-    log::debug!("Mission Completed!");
+    log::info!("Mission Completed!");
     Ok(())
 }
 

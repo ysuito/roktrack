@@ -42,12 +42,17 @@ impl PilotHandler for MonitorAnimal {
     ) {
         log::debug!("Start MonitorAnimal Handle");
         // Assess and handle system safety
-        let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
+        let system_risk = match assess_system_risk(state) {
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -63,7 +68,7 @@ impl PilotHandler for MonitorAnimal {
             // Get now.
             let utc = chrono::Utc::now();
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {
-                log::debug!("Interval time has elapsed. Re-detection is notified.");
+                log::info!("Interval time has elapsed. Re-detection is notified.");
                 self.last_detected_time = utc.timestamp_millis() as u64;
                 let msg = format!(
                     "{:?} detected.",
@@ -86,11 +91,10 @@ enum SystemRisk {
 }
 /// Identify system-related risks
 ///
-fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<SystemRisk> {
+fn assess_system_risk(state: &RoktrackState) -> Option<SystemRisk> {
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else {
         None

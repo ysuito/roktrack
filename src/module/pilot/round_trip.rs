@@ -43,12 +43,21 @@ impl PilotHandler for RoundTrip {
         log::debug!("Start RoundTrip Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
-            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
+            Some(SystemRisk::Bumped) => {
+                let res = base::escape(state, device);
+                device.inner.clone().lock().unwrap().speak("bumped");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -65,10 +74,10 @@ impl PilotHandler for RoundTrip {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
@@ -81,11 +90,11 @@ impl PilotHandler for RoundTrip {
             Some(ActPhase::ReachMarker) => {
                 self.target_object = match self.target_object {
                     RoundTripObject::Marker => {
-                        log::debug!("Target Object Switch. Marker -> Person");
+                        log::info!("Target Object Switch. Marker -> Person");
                         RoundTripObject::Person
                     }
                     RoundTripObject::Person => {
-                        log::debug!("Target Object Switch. Person -> Marker");
+                        log::info!("Target Object Switch. Person -> Marker");
                         RoundTripObject::Marker
                     }
                 };
@@ -129,10 +138,8 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None

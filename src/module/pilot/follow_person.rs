@@ -41,12 +41,21 @@ impl PilotHandler for FollowPerson {
         log::debug!("Start FollowPerson Handle");
         // Assess and handle system safety
         let system_risk = match assess_system_risk(state, device) {
-            Some(SystemRisk::StateOff) | Some(SystemRisk::HighTemp) => Some(base::stop(device)),
-            Some(SystemRisk::Bumped) => Some(base::escape(state, device)),
+            Some(SystemRisk::StateOff) => Some(base::stop(device)),
+            Some(SystemRisk::HighTemp) => {
+                let res = base::stop(device);
+                device.inner.clone().lock().unwrap().speak("high_temp");
+                Some(res)
+            }
+            Some(SystemRisk::Bumped) => {
+                let res = base::escape(state, device);
+                device.inner.clone().lock().unwrap().speak("bumped");
+                Some(res)
+            }
             None => None,
         };
         if system_risk.is_some() {
-            log::debug!("System Risk Exists. Continue.");
+            log::warn!("System Risk Exists. Continue.");
             return; // Risk exists, continue
         }
 
@@ -57,10 +66,10 @@ impl PilotHandler for FollowPerson {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
-        log::debug!("Marker Selected: {:?}", marker);
+        log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);
-        log::debug!("Action is {:?}", action);
+        log::info!("Action is {:?}", action);
 
         // Handle the current phase
         let _ = match action {
@@ -73,7 +82,7 @@ impl PilotHandler for FollowPerson {
             Some(ActPhase::Stand) => base::stand(state, tx),
             Some(ActPhase::StartTurn) => base::start_turn(state, device),
             Some(ActPhase::ReachMarker) => {
-                log::debug!("Reach Marker pausing.");
+                log::info!("Reach Marker pausing.");
                 device.inner.lock().unwrap().pause();
                 Ok(())
             }
@@ -98,10 +107,8 @@ fn assess_system_risk(state: &RoktrackState, device: &Roktrack) -> Option<System
     if !state.state {
         Some(SystemRisk::StateOff)
     } else if state.pi_temp > 70.0 {
-        device.inner.clone().lock().unwrap().speak("high_temp");
         Some(SystemRisk::HighTemp)
     } else if device.inner.clone().lock().unwrap().bumper.switch.is_low() {
-        device.inner.clone().lock().unwrap().speak("bumped");
         Some(SystemRisk::Bumped)
     } else {
         None
