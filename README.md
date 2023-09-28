@@ -10,7 +10,7 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 - As a surveillance camera that can detect person and animals while charging.
 
 > [!WARNING]  
-> High-speed rotating blades are very dangerous. If you make this machine by yourself, please be very careful and ensure the safety of your surroundings before using it.
+> Fast-spinning  blades are very dangerous. If you make this machine by yourself, please be very careful and ensure the safety of your surroundings before using it.
 
 ## Demo
 ### Single Operation
@@ -24,7 +24,7 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 </div>
 
 # Requirement
-* Raspberry Pi 3A+ or Raspberry Pi 4B
+* Raspberry Pi 3A+ or Raspberry Pi 4B or Raspberry Pi Zero 2W(without speaking)
 * libv4l-dev
 * libssl-dev
 
@@ -40,6 +40,38 @@ Surround the area to be mowed with pylons (traffic cones), place Roktrack and ex
 cd roktrack
 sudo ./roktrack
 ```
+
+# Auto-Startup
+If you want to start it at the same time as system startup, create a file with the following contents as /lib/systemd/system/roktrack.service.
+
+```/lib/systemd/system/roktrack.service
+[Unit]
+Description = roktrack
+
+[Service]
+ExecStart=/home/pi/roktrack/roktrack
+Restart=always
+Type=simple
+WorkingDirectory=/home/pi/roktrack
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Load it and activate it.
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable roktrack.service
+```
+
+Finally, set the Raspberry Pi to Read Only.
+```bash
+sudo raspi-config nonint enable_overlayfs
+sudo systemctl reboot
+```
+
+> [!Note]  
+> If you are using a Raspberry Pi3A+ or Zero 2W, please refer to the [hackaday log](https://hackaday.io/project/190977-roktrack-pylon-guided-mower/log/220570-expand-the-available-memory-area-of-rpi3a-made-read-only) to reserve memory.
 
 # License
 The source code is licensed GPL v3.0. The files under the assets and hardware directories are licensed CC BY-NC-SA 4.0,see LICENSE.
