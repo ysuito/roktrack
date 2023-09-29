@@ -22,6 +22,8 @@ use super::pilot::PilotHandler;
 use super::util::conf::Config;
 
 /// Start the autonomous driving thread.
+///
+/// # Note: THIS THREAD MUST BE FAST LOOP.
 pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     // Prepare communication channels for threads.
     // For Vision

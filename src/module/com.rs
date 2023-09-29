@@ -52,6 +52,7 @@ impl BleBroadCast {
 
     /// Listens to BLE advertisements and sends neighbor information via a channel.
     ///
+    /// # Note: THIS THREAD MUST BE FAST LOOP.
     pub fn listen(&self, tx: Sender<Neighbor>) -> JoinHandle<()> {
         thread::spawn(move || {
             log::debug!("Com Thread Started");

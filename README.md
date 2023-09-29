@@ -24,9 +24,11 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 </div>
 
 # Requirement
-* Raspberry Pi 3A+ or Raspberry Pi 4B or Raspberry Pi Zero 2W(without speaking)
+* Raspberry Pi 3A+, 4B, Zero 2W(without speaking)
 * libv4l-dev
 * libssl-dev
+
+See [BUILD INSTRUCTION](https://hackaday.io/project/190977-roktrack-pylon-guided-mower) for information on assembling the hardware.
 
 # Installation
 ```bash

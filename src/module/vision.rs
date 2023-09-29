@@ -53,6 +53,8 @@ impl RoktrackVision {
     /// This method spawns a new thread that runs the inference loop for image processing.
     /// It takes two arguments: a sender and a receiver for communicating with other threads.
     /// It returns a handle to the spawned thread.
+    ///
+    /// # Note: THIS THREAD IS SLOW LOOP.
     pub fn run(
         &self,
         tx: Sender<Vec<Detection>>, // The sender for sending the detection results to other threads

@@ -37,6 +37,8 @@ impl Roktrack {
     }
 
     /// Runs the device management thread.
+    ///
+    /// # Note: THIS THREAD MUST BE FAST LOOP.
     pub fn run(&self, rx: Receiver<DeviceMgmtCommand>) -> JoinHandle<()> {
         let local_self = self.inner.clone();
         thread::spawn(move || {
