@@ -11,7 +11,7 @@ use crate::module::{
     pilot::RoktrackState,
     util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
-    vision::VisionMgmtCommand,
+    vision::{VisionMgmtCommand, VisualInfo},
 };
 
 pub struct FollowPerson {}
@@ -34,7 +34,7 @@ impl PilotHandler for FollowPerson {
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
-        detections: &mut [Detection],
+        visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
@@ -44,12 +44,12 @@ impl PilotHandler for FollowPerson {
             Some(SystemRisk::StateOff) => Some(base::stop(device)),
             Some(SystemRisk::HighTemp) => {
                 let res = base::stop(device);
-                device.inner.clone().lock().unwrap().speak("high_temp");
+                device.speak("high_temp");
                 Some(res)
             }
             Some(SystemRisk::Bumped) => {
                 let res = base::escape(state, device);
-                device.inner.clone().lock().unwrap().speak("bumped");
+                device.speak("bumped");
                 Some(res)
             }
             None => None,
@@ -59,8 +59,18 @@ impl PilotHandler for FollowPerson {
             return; // Risk exists, continue
         }
 
+        let mut detections = visual_info.detections.clone();
+        // Skip during turning(Images taken while turning are blurred.)
+        if device.inner.clone().lock().unwrap().is_turning()
+            && visual_info.shooting_start_time
+                < device.inner.clone().lock().unwrap().target_time + 300
+        {
+            log::debug!("Waiting for Static Image.");
+            return; // wait for next image
+        }
+
         // Sort markers based on the current phase
-        let detections = sort::big(detections);
+        let detections = sort::big(&mut detections);
         let detections =
             RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PERSON).to_u32());
 

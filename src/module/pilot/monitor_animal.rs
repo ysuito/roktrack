@@ -8,8 +8,8 @@ use crate::module::{
     pilot::base,
     pilot::RoktrackState,
     util::{common::send_line_notify_with_image, init::RoktrackProperty},
-    vision::detector::{AnimalClasses, Detection},
     vision::VisionMgmtCommand,
+    vision::{detector::AnimalClasses, VisualInfo},
 };
 
 pub struct MonitorAnimal {
@@ -36,7 +36,7 @@ impl PilotHandler for MonitorAnimal {
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
-        detections: &mut [Detection],
+        visual_info: &mut VisualInfo,
         _tx: Sender<VisionMgmtCommand>,
         property: RoktrackProperty,
     ) {
@@ -46,7 +46,7 @@ impl PilotHandler for MonitorAnimal {
             Some(SystemRisk::StateOff) => Some(base::stop(device)),
             Some(SystemRisk::HighTemp) => {
                 let res = base::stop(device);
-                device.inner.clone().lock().unwrap().speak("high_temp");
+                device.speak("high_temp");
                 Some(res)
             }
             None => None,
@@ -56,15 +56,21 @@ impl PilotHandler for MonitorAnimal {
             return; // Risk exists, continue
         }
 
+        let detections = visual_info.detections.clone();
+
+        // Skip during turning(Images taken while turning are blurred.)
+        if device.inner.clone().lock().unwrap().is_turning()
+            && visual_info.shooting_start_time
+                < device.inner.clone().lock().unwrap().target_time + 300
+        {
+            log::debug!("Waiting for Static Image.");
+            return; // wait for next image
+        }
+
         // Check animal exist
         if !detections.is_empty() {
             log::warn!("Animal Detected!!");
-            device
-                .inner
-                .clone()
-                .lock()
-                .unwrap()
-                .speak("animal_detecting");
+            device.speak("animal_detecting");
             // Get now.
             let utc = chrono::Utc::now();
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {

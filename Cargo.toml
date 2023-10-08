@@ -15,7 +15,6 @@ log = "0.4.20"
 log4rs = "1.2.0"
 serde = { version = "1.0.104", features = ["derive"] }
 toml = "0.8.0"
-soloud = "1.0.5"
 chrono = "0.4.26"
 rand = "0.8.5"
 uuid = "1.4.1"

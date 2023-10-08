@@ -8,7 +8,7 @@ pub mod resource {
     ///
     pub fn init() -> RoktrackProperty {
         // Announce the start of mowing by calling the speak function from the speaker submodule
-        let _ = crate::module::device::speaker::speak("start_mowing");
+        crate::module::device::speaker::speak("start_mowing");
 
         // Prepare the app data directory by calling the create_app_sub_dir function from the dir submodule
         let paths = crate::module::util::path::dir::create_app_sub_dir();

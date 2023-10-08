@@ -36,6 +36,11 @@ impl Roktrack {
         }
     }
 
+    /// Plays audio files stored in the asset/audio/ folder.
+    pub fn speak(&self, name: &str) {
+        speaker::speak(name);
+    }
+
     /// Runs the device management thread.
     ///
     /// # Note: THIS THREAD MUST BE FAST LOOP.
@@ -78,6 +83,7 @@ pub struct RoktrackInner {
     pub bumper: base::Bumper,
     pub turn_adj: f32,    // Turn time adjustment factor
     pub target_time: u64, // Milliseconds
+    pub action: Actions,
 }
 
 impl RoktrackInner {
@@ -98,12 +104,14 @@ impl RoktrackInner {
             bumper: base::Bumper::new(conf.pin.bumper_pin),
             turn_adj: conf.drive.turn_adj,
             target_time: 0, // Milliseconds
+            action: Actions::Stop,
         }
     }
 
-    /// Plays audio files stored in the asset/audio/ folder.
-    pub fn speak(&self, name: &str) {
-        let _ = speaker::speak(name);
+    /// Is turning
+    pub fn is_turning(&self) -> bool {
+        log::debug!("IsturningAction: {:?}", self.action);
+        self.action == Actions::Left || self.action == Actions::Right
     }
 
     /// Measures the temperature of the Raspberry Pi's SoC.
@@ -159,12 +167,14 @@ impl Chassis for RoktrackInner {
         self.drive_motor_left.stop();
         self.drive_motor_right.stop();
         self.work_motor.stop();
+        self.action = Actions::Stop;
     }
 
     /// Pause drive motors (left and right).
     fn pause(&mut self) {
         self.drive_motor_left.stop();
         self.drive_motor_right.stop();
+        self.action = Actions::Pause;
     }
 
     /// Move the machine forward for the specified duration.
@@ -172,6 +182,7 @@ impl Chassis for RoktrackInner {
         self.drive_motor_left.cw();
         self.drive_motor_right.cw();
         self.set_target_time(milsec);
+        self.action = Actions::Forward;
     }
 
     /// Move the machine backward for the specified duration.
@@ -179,6 +190,7 @@ impl Chassis for RoktrackInner {
         self.drive_motor_left.ccw();
         self.drive_motor_right.ccw();
         self.set_target_time(milsec);
+        self.action = Actions::Backward;
     }
 
     /// Move the machine left for the specified duration.
@@ -186,6 +198,7 @@ impl Chassis for RoktrackInner {
         self.drive_motor_left.ccw();
         self.drive_motor_right.cw();
         self.set_target_time(milsec);
+        self.action = Actions::Left;
     }
 
     /// Move the machine right for the specified duration.
@@ -193,6 +206,7 @@ impl Chassis for RoktrackInner {
         self.drive_motor_left.cw();
         self.drive_motor_right.ccw();
         self.set_target_time(milsec);
+        self.action = Actions::Right;
     }
 }
 
@@ -205,6 +219,17 @@ impl Drop for RoktrackInner {
         log::debug!("Dropping RoktrackInner");
         self.stop();
     }
+}
+
+/// Drive System Actions
+#[derive(PartialEq, Debug)]
+pub enum Actions {
+    Stop,
+    Pause,
+    Forward,
+    Backward,
+    Left,
+    Right,
 }
 
 #[cfg(test)]

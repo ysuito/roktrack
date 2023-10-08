@@ -3,7 +3,6 @@
 use crate::module::com::{BleBroadCast, Neighbor, ParentMsg};
 use crate::module::pilot::{Modes, RoktrackState};
 use crate::module::util::init::RoktrackProperty;
-use crate::module::vision::detector::Detection;
 use crate::module::vision::{RoktrackVision, VisionMgmtCommand};
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -20,6 +19,7 @@ use super::pilot::oneway::OneWay;
 use super::pilot::round_trip::RoundTrip;
 use super::pilot::PilotHandler;
 use super::util::conf::Config;
+use super::vision::VisualInfo;
 
 /// Start the autonomous driving thread.
 ///
@@ -31,10 +31,8 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
         Sender<VisionMgmtCommand>,
         Receiver<VisionMgmtCommand>,
     ) = mpsc::channel();
-    let (channel_detections_tx, channel_detections_rx): (
-        Sender<Vec<Detection>>,
-        Receiver<Vec<Detection>>,
-    ) = mpsc::channel();
+    let (channel_detections_tx, channel_detections_rx): (Sender<VisualInfo>, Receiver<VisualInfo>) =
+        mpsc::channel();
     // For BLE Communication
     let (channel_neighbor_tx, channel_neighbor_rx): (Sender<Neighbor>, Receiver<Neighbor>) =
         mpsc::channel();
@@ -94,15 +92,15 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
         }
 
         // Get new inference results.
-        let detections = match channel_detections_rx.try_recv() {
-            Ok(detections) => Some(detections),
+        let visual_info = match channel_detections_rx.try_recv() {
+            Ok(visual_info) => Some(visual_info),
             Err(_) => None,
         };
 
         // If there is no detections, skip the rest of the loop.
-        if let Some(dets) = detections {
+        if let Some(visual_info) = visual_info {
             // Binding for detections
-            let mut dets = dets;
+            let mut visual_info = visual_info;
 
             // Pre-processing for handling
             let _ = pre_process(&mut state, &mut device);
@@ -111,7 +109,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             handler.handle(
                 &mut state,
                 &mut device,
-                &mut dets,
+                &mut visual_info,
                 channel_vision_mgmt_tx.clone(),
                 property.clone(),
             );
@@ -147,13 +145,13 @@ fn command_to_handler(
                     state.state = false;
                     device.inner.clone().lock().unwrap().stop();
                     tx.send(VisionMgmtCommand::Off).unwrap();
-                    device.inner.clone().lock().unwrap().speak("receive_off");
+                    device.speak("receive_off");
                 }
                 None
             }
             ParentMsg::On => {
                 if !state.state {
-                    device.inner.clone().lock().unwrap().speak("receive_on");
+                    device.speak("receive_on");
                     state.state = true;
                     tx.send(VisionMgmtCommand::On).unwrap();
                 }
@@ -163,19 +161,14 @@ fn command_to_handler(
             ParentMsg::Reset => {
                 if !state.state {
                     state.reset();
-                    device.inner.clone().lock().unwrap().speak("receive_reset");
+                    device.speak("receive_reset");
                 }
                 None
             }
             // Switch mode
             ParentMsg::Fill => {
                 if !state.state && state.mode != Modes::Fill {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_fillmode");
+                    device.speak("receive_fillmode");
                     state.mode = Modes::Fill;
                     mode_to_handler(state.mode, tx, conf)
                 } else {
@@ -184,12 +177,7 @@ fn command_to_handler(
             }
             ParentMsg::Oneway => {
                 if !state.state && state.mode != Modes::OneWay {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_onewaymode");
+                    device.speak("receive_onewaymode");
                     state.mode = Modes::OneWay;
                     mode_to_handler(state.mode, tx, conf)
                 } else {
@@ -200,12 +188,7 @@ fn command_to_handler(
             ParentMsg::Around => None,
             ParentMsg::MonitorPerson => {
                 if !state.state && state.mode != Modes::MonitorPerson {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_monitorpersonmode");
+                    device.speak("receive_monitorpersonmode");
                     state.mode = Modes::MonitorPerson;
                     mode_to_handler(state.mode, tx, conf)
                 } else {
@@ -214,12 +197,7 @@ fn command_to_handler(
             }
             ParentMsg::MonitorAnimal => {
                 if !state.state && state.mode != Modes::MonitorAnimal {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_monitoranimalmode");
+                    device.speak("receive_monitoranimalmode");
                     state.mode = Modes::MonitorAnimal;
                     mode_to_handler(state.mode, tx, conf)
                 } else {
@@ -228,12 +206,7 @@ fn command_to_handler(
             }
             ParentMsg::RoundTrip => {
                 if !state.state && state.mode != Modes::RoundTrip {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_roundtripmode");
+                    device.speak("receive_roundtripmode");
                     state.mode = Modes::RoundTrip;
                     mode_to_handler(state.mode, tx, conf)
                 } else {
@@ -242,12 +215,7 @@ fn command_to_handler(
             }
             ParentMsg::FollowPerson => {
                 if !state.state && state.mode != Modes::FollowPerson {
-                    device
-                        .inner
-                        .clone()
-                        .lock()
-                        .unwrap()
-                        .speak("receive_followpersonmode");
+                    device.speak("receive_followpersonmode");
                     state.mode = Modes::FollowPerson;
                     mode_to_handler(state.mode, tx, conf)
                 } else {

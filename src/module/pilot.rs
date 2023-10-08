@@ -13,7 +13,7 @@ use super::{
     com::Neighbor, // Import the Neighbor type from the com module
     device::Roktrack,
     util::init::RoktrackProperty,
-    vision::{detector::Detection, VisionMgmtCommand},
+    vision::{VisionMgmtCommand, VisualInfo},
 };
 use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
 use std::collections::HashMap;
@@ -225,7 +225,7 @@ pub trait PilotHandler: Send + Sync {
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
-        detections: &mut [Detection],
+        visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
         property: RoktrackProperty,
     ) {

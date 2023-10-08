@@ -8,8 +8,11 @@ use crate::module::{
     pilot::base,
     pilot::RoktrackState,
     util::{common::send_line_notify_with_image, init::RoktrackProperty},
-    vision::detector::{Detection, FilterClass, RoktrackClasses},
     vision::VisionMgmtCommand,
+    vision::{
+        detector::{FilterClass, RoktrackClasses},
+        VisualInfo,
+    },
 };
 
 pub struct MonitorPerson {
@@ -36,7 +39,7 @@ impl PilotHandler for MonitorPerson {
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
-        detections: &mut [Detection],
+        visual_info: &mut VisualInfo,
         _tx: Sender<VisionMgmtCommand>,
         property: RoktrackProperty,
     ) {
@@ -46,7 +49,7 @@ impl PilotHandler for MonitorPerson {
             Some(SystemRisk::StateOff) => Some(base::stop(device)),
             Some(SystemRisk::HighTemp) => {
                 let res = base::stop(device);
-                device.inner.clone().lock().unwrap().speak("high_temp");
+                device.speak("high_temp");
                 Some(res)
             }
             None => None,
@@ -56,15 +59,21 @@ impl PilotHandler for MonitorPerson {
             return; // Risk exists, continue
         }
 
+        let mut detections = visual_info.detections.clone();
+
+        // Skip during turning(Images taken while turning are blurred.)
+        if device.inner.clone().lock().unwrap().is_turning()
+            && visual_info.shooting_start_time
+                < device.inner.clone().lock().unwrap().target_time + 300
+        {
+            log::debug!("Waiting for Static Image.");
+            return; // wait for next image
+        }
+
         // Check prtson exist
-        if !RoktrackClasses::filter(detections, RoktrackClasses::PERSON.to_u32()).is_empty() {
+        if !RoktrackClasses::filter(&mut detections, RoktrackClasses::PERSON.to_u32()).is_empty() {
             log::warn!("Person Detected!!");
-            device
-                .inner
-                .clone()
-                .lock()
-                .unwrap()
-                .speak("person_detecting_warn");
+            device.speak("person_detecting_warn");
             // Get now.
             let utc = chrono::Utc::now();
             if self.last_detected_time + 60000 < utc.timestamp_millis() as u64 {

@@ -1,7 +1,9 @@
 //! Audio Handler.
 
-use soloud::*;
+// use soloud::*;
 use std::path::Path;
+use std::process::Command;
+use std::thread::{self};
 
 /// Play an audio file.
 ///
@@ -17,29 +19,13 @@ use std::path::Path;
 /// use roktracklib::module::device::speaker::play;
 /// play("asset/audio/ja/start_mowing.mp3");
 /// ```
-pub fn play(file: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn play(file: &str) {
     let path = Path::new(file);
-
-    // Check if the file exists
-    if path.is_file() {
-        let sl = Soloud::default()?;
-        let mut wav = audio::Wav::default();
-
-        // Load the audio file
-        if let Err(error) = wav.load(path) {
-            eprintln!("Failed to load audio file: {:?}", error);
-            return Err("Failed to load audio file.".into());
-        }
-
-        sl.play(&wav);
-
-        // Wait for the audio to finish playing
-        while sl.voice_count() > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-        return Ok(());
-    }
-    Err("The file to play isn't exist.".into())
+    Command::new("mpg123")
+        .arg("-q")
+        .arg(path.as_os_str())
+        .output()
+        .expect("failed to execute mpg123");
 }
 
 /// Play an asset audio file.
@@ -55,9 +41,9 @@ pub fn play(file: &str) -> Result<(), Box<dyn std::error::Error>> {
 /// ```
 /// speak("start_mowing");
 /// ```
-pub fn speak(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn speak(name: &str) {
     let path = Path::new("./asset/audio/ja/").join(format!("{name}.mp3"));
-    play(path.to_str().unwrap())
+    thread::spawn(move || play(path.to_str().unwrap()));
 }
 
 /// Logger functions for speaking audio messages based on log levels.
@@ -79,7 +65,7 @@ pub mod logger {
     /// ```
     pub fn debug(name: &str, level: &str) -> bool {
         if ["DEBUG"].contains(&level) {
-            let _ = speak(name);
+            speak(name);
             true
         } else {
             false
@@ -101,7 +87,7 @@ pub mod logger {
     /// ```
     pub fn info(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO"].contains(&level) {
-            let _ = speak(name);
+            speak(name);
             true
         } else {
             false
@@ -123,7 +109,7 @@ pub mod logger {
     /// ```
     pub fn warn(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO", "WARN"].contains(&level) {
-            let _ = speak(name);
+            speak(name);
             true
         } else {
             false
@@ -145,7 +131,7 @@ pub mod logger {
     /// ```
     pub fn error(name: &str, level: &str) -> bool {
         if ["DEBUG", "INFO", "WARN", "ERROR"].contains(&level) {
-            let _ = speak(name);
+            speak(name);
             true
         } else {
             false
@@ -159,8 +145,8 @@ mod tests {
 
     #[test]
     fn audio_test() {
-        let _ = play("asset/audio/ja/start_mowing.mp3");
-        let _ = play("start_mowing");
+        play("asset/audio/ja/start_mowing.mp3");
+        play("start_mowing");
         assert!(logger::debug("start_mowing", "DEBUG"));
         assert!(!logger::debug("start_mowing", "INFO"));
         assert!(logger::info("start_mowing", "INFO"));

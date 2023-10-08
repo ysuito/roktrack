@@ -109,7 +109,7 @@ pub fn halt(
     state.state = false;
     state.msg = ChildMsg::to_u8(ChildMsg::TargetNotFound);
     device.inner.clone().lock().unwrap().stop();
-    device.inner.clone().lock().unwrap().speak("cone_not_found");
+    device.speak("cone_not_found");
     tx.send(VisionMgmtCommand::Off).unwrap();
     log::warn!("Halted!");
     Ok(())
@@ -359,8 +359,10 @@ pub fn set_new_target(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Notify that a new target is found
     state.msg = ChildMsg::to_u8(ChildMsg::NewTargetFound);
+    // Pause the Roktrack's movement
+    device.inner.clone().lock().unwrap().pause();
     // Speak a notification
-    device.inner.clone().lock().unwrap().speak("new_cone_found");
+    device.speak("new_cone_found");
     // Subtract the rest value
     state.rest -= state.constant;
     // Calculate the new target height based on the marker properties
@@ -368,7 +370,7 @@ pub fn set_new_target(
         + (state.img_height as f32 * 0.9 - marker.h as f32) * (state.rest.powf(2.0)))
         as u16;
     // Reset the turn count
-    state.turn_count = 0;
+    state.turn_count = -1;
     log::debug!(
         "Set New Target. rest: {}, target_height: {}, turn_count: {}",
         state.rest,
@@ -472,7 +474,7 @@ pub fn reach_marker(
     // Send "reach target" message
     state.msg = ChildMsg::to_u8(ChildMsg::ReachTarget);
     // Speak a "close to cone" notification
-    device.inner.clone().lock().unwrap().speak("close_to_cone");
+    device.speak("close_to_cone");
     // Start the next turn in the specified direction
     match state.phase {
         Phase::CCW => device.inner.clone().lock().unwrap().left(500),
@@ -697,12 +699,10 @@ pub fn select_marker(
                 device.inner.lock().unwrap().stop();
                 thread::sleep(time::Duration::from_millis(5000));
                 state.marker_id = detection.ids.first().copied();
-                device.inner.lock().unwrap().speak("switch_ocr_mode");
-                device
-                    .inner
-                    .lock()
-                    .unwrap()
-                    .speak(format!("target{}", state.marker_id.unwrap()).as_str());
+                device.speak("switch_ocr_mode");
+                thread::sleep(time::Duration::from_millis(2000));
+                device.speak(format!("target{}", state.marker_id.unwrap()).as_str());
+                thread::sleep(time::Duration::from_millis(1000));
                 log::debug!(
                     "First Marker Id Found. new_id: {}",
                     state.marker_id.unwrap()

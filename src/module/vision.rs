@@ -57,7 +57,7 @@ impl RoktrackVision {
     /// # Note: THIS THREAD IS SLOW LOOP.
     pub fn run(
         &self,
-        tx: Sender<Vec<Detection>>, // The sender for sending the detection results to other threads
+        tx: Sender<VisualInfo>, // The sender for sending the detection results as visual information to other threads
         rx: Receiver<VisionMgmtCommand>, // The receiver for receiving management commands from other threads
     ) -> JoinHandle<()> {
         let local_self = self.inner.clone(); // Clone the inner field to avoid borrowing issues
@@ -118,18 +118,22 @@ impl RoktrackVision {
             // Send detections to other threads using the sender
             // Take an image using the camera
             {
+                let mut visual_info = VisualInfo::new();
                 log::debug!("Vision Camera Process Start");
+                visual_info.shooting_start_time = chrono::Utc::now().timestamp_millis() as u64;
                 let res_take = local_self.lock().unwrap().cam.take_picture(); // Lock the inner field and call the take method on the camera field
+                visual_info.shooting_end_time = chrono::Utc::now().timestamp_millis() as u64;
                 log::debug!("Vision Camera Process End");
                 if res_take.is_ok() {
                     let session_type = local_self.lock().unwrap().det.session_type.clone(); // Lock the inner field and clone the session type from the detector field
+                    log::debug!("Session_type:{:?}", session_type.clone());
                     let dets = local_self // Lock the inner field and call the infer method on the detector field with the image path and session type as arguments
                         .lock()
                         .unwrap()
                         .det
                         .infer(&local_property.path.img.last, session_type);
                     let mut dets = dets.unwrap();
-                    log::debug!("Vision Detected: {:?}", dets.clone());
+                    log::debug!("Vision Detected: {:?}", dets.clone(),);
                     // Handle ocr
                     let ocr_support = local_self.lock().unwrap().det.support_ocr();
                     if ocr_support {
@@ -145,10 +149,34 @@ impl RoktrackVision {
                             .unwrap();
                         log::debug!("Vision Detected With Ocr: {:?}", dets.clone());
                     }
-                    tx.send(dets).unwrap(); // Send the detection results to other threads using the sender
+                    visual_info.detections = dets;
+                    tx.send(visual_info).unwrap(); // Send the detection results to other threads using the sender
                 }
             }
         })
+    }
+}
+
+/// Visual Information
+pub struct VisualInfo {
+    pub shooting_start_time: u64,
+    pub shooting_end_time: u64,
+    pub detections: Vec<Detection>,
+}
+
+impl VisualInfo {
+    pub fn new() -> Self {
+        Self {
+            shooting_start_time: 0,
+            shooting_end_time: 0,
+            detections: vec![],
+        }
+    }
+}
+
+impl Default for VisualInfo {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

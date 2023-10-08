@@ -10,7 +10,7 @@ use crate::module::{
     pilot::{Phase, RoktrackState},
     util::init::RoktrackProperty,
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
-    vision::VisionMgmtCommand,
+    vision::{VisionMgmtCommand, VisualInfo},
 };
 
 pub struct OneWay {}
@@ -33,7 +33,7 @@ impl PilotHandler for OneWay {
         &mut self,
         state: &mut RoktrackState,
         device: &mut Roktrack,
-        detections: &mut [Detection],
+        visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
         _property: RoktrackProperty,
     ) {
@@ -43,12 +43,12 @@ impl PilotHandler for OneWay {
             Some(SystemRisk::StateOff) => Some(base::stop(device)),
             Some(SystemRisk::HighTemp) => {
                 let res = base::stop(device);
-                device.inner.clone().lock().unwrap().speak("high_temp");
+                device.speak("high_temp");
                 Some(res)
             }
             Some(SystemRisk::Bumped) => {
                 let res = base::escape(state, device);
-                device.inner.clone().lock().unwrap().speak("bumped");
+                device.speak("bumped");
                 Some(res)
             }
             None => None,
@@ -58,16 +58,22 @@ impl PilotHandler for OneWay {
             return; // Risk exists, continue
         }
 
+        let mut detections = visual_info.detections.clone();
+
+        // Skip during turning(Images taken while turning are blurred.)
+        if device.inner.clone().lock().unwrap().is_turning()
+            && visual_info.shooting_start_time
+                < device.inner.clone().lock().unwrap().target_time + 300
+        {
+            log::debug!("Waiting for Static Image.");
+            return; // wait for next image
+        }
+
         // Assess and handle vision safety
-        let vision_risk = match assess_vision_risk(detections) {
+        let vision_risk = match assess_vision_risk(&mut detections) {
             Some(VisionRisk::PersonDetected) => {
                 let res = base::stop(device);
-                device
-                    .inner
-                    .clone()
-                    .lock()
-                    .unwrap()
-                    .speak("person_detecting");
+                device.speak("person_detecting");
                 Some(res)
             }
             Some(VisionRisk::RoktrackDetected) => Some(base::stop(device)),
@@ -80,10 +86,10 @@ impl PilotHandler for OneWay {
 
         // Sort markers based on the current phase
         let detections = match state.turn_count {
-            1 => sort::small(detections),
+            1 => sort::small(&mut detections),
             _ => match state.phase {
-                Phase::CCW => sort::right(detections),
-                Phase::CW => sort::left(detections),
+                Phase::CCW => sort::right(&mut detections),
+                Phase::CW => sort::left(&mut detections),
             },
         };
 

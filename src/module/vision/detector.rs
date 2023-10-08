@@ -195,6 +195,7 @@ pub mod onnx {
         ) -> Result<Vec<Detection>, Box<dyn std::error::Error>> {
             // For result
             let mut new_dets = dets.clone();
+            log::debug!("[In Ocr] Dets: {:?}", new_dets.clone());
 
             // Resolution of the image used for detection
             let (iw, ih) = match self.session_type {
@@ -202,11 +203,13 @@ pub mod onnx {
                 SessionType::Sz640 => (640.0, 640.0),
                 _ => (0.0, 0.0),
             };
+            log::debug!("[In Ocr] iw: {:?}, ih: {:?}", iw, ih);
             // Original resolution
             let (ow, oh) = (
                 property.conf.camera.width as f64,
                 property.conf.camera.height as f64,
             );
+            log::debug!("[In Ocr] ow: {:?}, oh: {:?}", ow, oh);
             // Load original image (full resolution)
             let mut img = Reader::open(impath)?.decode()?;
             // Iterates dets.
@@ -220,6 +223,26 @@ pub mod onnx {
                 );
                 // Ralative width and height
                 let (rw, rh) = (rx2 - rx1, ry2 - ry1);
+                // let x = if 0.0 < (ow * rx1 - (ow * 0.05)) {
+                //     ow * rx1 - (ow * 0.05)
+                // } else {
+                //     ow * rx1
+                // } as u32;
+                // let y = if 0.0 < oh * ry1 - (oh * 0.05) {
+                //     oh * ry1 - (oh * 0.05)
+                // } else {
+                //     oh * ry1
+                // } as u32;
+                // let w = if (ow * rw + (ow * 0.1)) < ow {
+                //     ow * rw + (ow * 0.1)
+                // } else {
+                //     ow * rw
+                // } as u32;
+                // let h = if (oh * rh + (oh * 0.1)) < oh {
+                //     oh * rh + (oh * 0.1)
+                // } else {
+                //     oh * rh
+                // } as u32;
                 // Crop original image by ratio
                 let crop = img.crop(
                     (ow * rx1) as u32,
@@ -227,17 +250,32 @@ pub mod onnx {
                     (ow * rw) as u32,
                     (oh * rh) as u32,
                 );
+                log::debug!(
+                    "[In Ocr] crop_cls: {:?}, crop_height: {:?}, crop_width:{:?}",
+                    det.cls,
+                    crop.height(),
+                    crop.width()
+                );
                 // Validate
                 if det.cls == 0 && crop.height() > 10 && crop.width() > 10 {
                     // Save the crop image to the specified file path.
                     let _save_res = crop.save(property.path.img.crop.clone());
+
+                    // let fname = format!(
+                    //     "/data/roktrack/img/{:?}.jpg",
+                    //     chrono::Utc::now().timestamp()
+                    // );
+                    // let _ = crop.save(fname.clone());
+
                     let ocr_dets =
                         self.infer(property.path.img.crop.clone().as_str(), SessionType::Ocr)?;
+
                     // Collect detected digits
                     let mut digits = vec![];
                     for ocr_det in ocr_dets {
                         digits.push(ocr_det.cls as u8);
                     }
+                    // log::debug!("[In Ocr] res: {:?}, fname: {:?}", digits.clone(), fname);
                     new_dets[i].ids = digits;
                 }
             }
