@@ -8,7 +8,7 @@ use crate::module::{
     device::Roktrack,
     pilot::base,
     pilot::{Phase, RoktrackState},
-    util::init::RoktrackProperty,
+    util::{conf::Config, init::RoktrackProperty},
     vision::detector::{sort, Detection, FilterClass, RoktrackClasses},
     vision::{VisionMgmtCommand, VisualInfo},
 };
@@ -35,7 +35,7 @@ impl PilotHandler for OneWay {
         device: &mut Roktrack,
         visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
-        _property: RoktrackProperty,
+        property: RoktrackProperty,
     ) {
         log::debug!("Start OneWay Handle");
         // Assess and handle system safety
@@ -70,7 +70,7 @@ impl PilotHandler for OneWay {
         }
 
         // Assess and handle vision safety
-        let vision_risk = match assess_vision_risk(&mut detections) {
+        let vision_risk = match assess_vision_risk(&mut detections, property.conf.clone()) {
             Some(VisionRisk::PersonDetected) => {
                 let res = base::stop(device);
                 device.speak("person_detecting");
@@ -84,6 +84,13 @@ impl PilotHandler for OneWay {
             return; // Risk exists, continue
         }
 
+        // Filter Only Marker
+        detections = RoktrackClasses::filter(
+            &mut detections,
+            RoktrackClasses::PYLON.to_u32(),
+            property.conf.detectthreshold.pylon,
+        );
+
         // Sort markers based on the current phase
         let detections = match state.turn_count {
             1 => sort::small(&mut detections),
@@ -95,6 +102,7 @@ impl PilotHandler for OneWay {
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        state.marker_height = marker.h;
         log::info!("Marker Selected: {:?}", marker);
 
         // Turn on the work motor
@@ -149,10 +157,22 @@ enum VisionRisk {
 }
 /// Identify vision-related risks
 ///
-fn assess_vision_risk(dets: &mut [Detection]) -> Option<VisionRisk> {
-    if !RoktrackClasses::filter(dets, RoktrackClasses::PERSON.to_u32()).is_empty() {
+fn assess_vision_risk(dets: &mut [Detection], conf: Config) -> Option<VisionRisk> {
+    if !RoktrackClasses::filter(
+        dets,
+        RoktrackClasses::PERSON.to_u32(),
+        conf.detectthreshold.person,
+    )
+    .is_empty()
+    {
         Some(VisionRisk::PersonDetected)
-    } else if !RoktrackClasses::filter(dets, RoktrackClasses::ROKTRACK.to_u32()).is_empty() {
+    } else if !RoktrackClasses::filter(
+        dets,
+        RoktrackClasses::ROKTRACK.to_u32(),
+        conf.detectthreshold.roktrack,
+    )
+    .is_empty()
+    {
         Some(VisionRisk::RoktrackDetected)
     } else {
         None

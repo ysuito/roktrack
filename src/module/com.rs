@@ -41,7 +41,7 @@ impl BleBroadCast {
         let mac: Vec<String> = bytes[7..13].iter().map(ToString::to_string).collect();
         let mac = mac.join(":");
         let rssi = bytes.last().unwrap();
-        let data = &bytes[23..];
+        let data = &bytes[21..];
 
         let mut neighbor = Neighbor::from_manufacture_data(data);
         neighbor.mac = mac.clone();
@@ -76,7 +76,7 @@ impl BleBroadCast {
                     // To byte
                     let bytes = hex::decode(data.clone());
                     if let Ok(b) = bytes {
-                        if b.len() > 22 && b[0] == 4 && b[1] == 62 && b[20] == 255 && b[21] == 255 {
+                        if b.len() > 22 && b[0] == 4 && b[1] == 62 && b[19] == 255 && b[20] == 255 {
                             let neighbor = Self::bytes_to_neighbor(&b);
                             log::debug!("BLE BroadCast Neighbor: {:?}", neighbor);
                             tx.send(neighbor).unwrap();
@@ -179,6 +179,7 @@ impl Neighbor {
         let mode = data[3];
         let msg = data[4];
         let dest = data[5];
+        let _appearance = data[6];
 
         // Set neighbor information.
         Self {
@@ -291,6 +292,8 @@ pub enum ParentMsg {
     MonitorAnimal,
     RoundTrip,
     FollowPerson,
+    Call,
+    Chorus,
     Unknown,
 }
 
@@ -315,6 +318,8 @@ impl ParentMsg {
             15 => ParentMsg::MonitorAnimal,
             16 => ParentMsg::RoundTrip,
             17 => ParentMsg::FollowPerson,
+            18 => ParentMsg::Call,
+            19 => ParentMsg::Chorus,
             _ => ParentMsg::Unknown,
         }
     }

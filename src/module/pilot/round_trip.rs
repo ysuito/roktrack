@@ -41,7 +41,7 @@ impl PilotHandler for RoundTrip {
         device: &mut Roktrack,
         visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
-        _property: RoktrackProperty,
+        property: RoktrackProperty,
     ) {
         log::debug!("Start RoundTrip Handle");
         // Assess and handle system safety
@@ -78,16 +78,21 @@ impl PilotHandler for RoundTrip {
         // Sort markers based on the current target object
         let detections = sort::big(&mut detections);
         let detections = match self.target_object {
-            RoundTripObject::Marker => {
-                RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PYLON).to_u32())
-            }
-            RoundTripObject::Person => {
-                RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PERSON).to_u32())
-            }
+            RoundTripObject::Marker => RoktrackClasses::filter(
+                &mut detections.clone(),
+                (RoktrackClasses::PYLON).to_u32(),
+                property.conf.detectthreshold.pylon,
+            ),
+            RoundTripObject::Person => RoktrackClasses::filter(
+                &mut detections.clone(),
+                (RoktrackClasses::PERSON).to_u32(),
+                property.conf.detectthreshold.person,
+            ),
         };
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        state.marker_height = marker.h;
         log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);

@@ -124,3 +124,6 @@ update_start:
 update_done:
   ja: ソフトウェアの更新が終わりました。
   en: 
+yes:
+  ja: はーい！
+  en: 

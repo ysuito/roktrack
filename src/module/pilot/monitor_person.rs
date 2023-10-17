@@ -71,7 +71,13 @@ impl PilotHandler for MonitorPerson {
         }
 
         // Check prtson exist
-        if !RoktrackClasses::filter(&mut detections, RoktrackClasses::PERSON.to_u32()).is_empty() {
+        if !RoktrackClasses::filter(
+            &mut detections,
+            RoktrackClasses::PERSON.to_u32(),
+            property.conf.detectthreshold.person,
+        )
+        .is_empty()
+        {
             log::warn!("Person Detected!!");
             device.speak("person_detecting_warn");
             // Get now.

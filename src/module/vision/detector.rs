@@ -398,7 +398,7 @@ pub mod onnx {
 /// A trait for filtering detection results by class
 ///
 pub trait FilterClass {
-    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection>;
+    fn filter(dets: &mut [Detection], cls_id: u32, threshold: f32) -> Vec<Detection>;
 }
 
 /// Roktrack base model's classes
@@ -431,11 +431,12 @@ impl RoktrackClasses {
 /// Filter By Class
 ///
 impl FilterClass for RoktrackClasses {
-    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection> {
+    fn filter(dets: &mut [Detection], cls_id: u32, threshold: f32) -> Vec<Detection> {
         let filtered_dets = dets
             .iter()
             .cloned()
             .filter(|det| det.cls == cls_id)
+            .filter(|det| det.prob > threshold)
             .collect::<Vec<_>>();
         filtered_dets
     }
@@ -498,10 +499,11 @@ impl AnimalClasses {
 /// Filter By Class
 ///
 impl FilterClass for AnimalClasses {
-    fn filter(dets: &mut [Detection], cls_id: u32) -> Vec<Detection> {
+    fn filter(dets: &mut [Detection], cls_id: u32, threshold: f32) -> Vec<Detection> {
         dets.iter()
             .cloned()
             .filter(|det| det.cls == cls_id)
+            .filter(|det| det.prob > threshold)
             .collect::<Vec<_>>()
     }
 }
@@ -672,10 +674,10 @@ mod tests {
         let mut detector = onnx::YoloV8::new();
         detector.sessions = onnx::YoloV8::build_animal_sessions().unwrap();
         let dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320);
-        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::BEAR.to_u32());
+        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::BEAR.to_u32(), 0.0);
         assert!(dets.len() == 1);
         let dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320);
-        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::MONKEY.to_u32());
+        let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::MONKEY.to_u32(), 0.0);
         assert!(dets.len() == 2);
     }
 
@@ -683,10 +685,12 @@ mod tests {
     fn pylon_detect_resolution_test() {
         let detector = onnx::YoloV8::new();
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
-        let dets = RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32());
+        let dets =
+            RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32(), 0.0);
         assert_eq!(dets.len(), 2);
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640);
-        let dets = RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32());
+        let dets =
+            RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32(), 0.0);
         assert_eq!(dets.len(), 2);
     }
 }

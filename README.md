@@ -27,12 +27,13 @@ Open source robotic mower using image recognition technology. No GPS. No boundar
 * Raspberry Pi 3A+, 4B, Zero 2W(without speaking)
 * libv4l-dev
 * libssl-dev
+* mpg123
 
 See [BUILD INSTRUCTION](https://hackaday.io/project/190977-roktrack-pylon-guided-mower) for information on assembling the hardware.
 
 # Installation
 ```bash
-sudo apt install -y libv4l-dev libssl-dev
+sudo apt install -y libv4l-dev libssl-dev mpg123
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ysuito/roktrack/master/installation.sh | sh
 ```
 
@@ -49,6 +50,8 @@ If you want to start it at the same time as system startup, create a file with t
 ```/lib/systemd/system/roktrack.service
 [Unit]
 Description = roktrack
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStart=/home/pi/roktrack/roktrack

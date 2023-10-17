@@ -77,6 +77,8 @@ pub struct System {
     pub ephemeral_dir: String,
     pub log_speaker_level: String,
     pub lang: String,
+    pub appearance: u8,
+    pub identifier: u8,
 }
 
 /// Represents drive-related configuration parameters.
@@ -147,6 +149,8 @@ const DEFAULT_CONFIG: &str = r#"
   ephemeral_dir = '/run/user/1000/roktrack' # Directory for ephemeral data
   log_speaker_level = 'INFO' # Log speaker level (e.g., 'INFO', 'DEBUG')
   lang = 'ja' # Language setting ('ja' for Japanese, 'en' for English)
+  appearance = 13
+  identifier = 1
 
 [drive]
   default_state = 'on' # Default state of the drive ('on' or 'off')
@@ -167,7 +171,7 @@ const DEFAULT_CONFIG: &str = r#"
   right_pin1 = 24 # Right motor control pin 1 (DIGITAL)
   right_pin2 = 25 # Right motor control pin 2 (PWM)
   bumper_pin = 26 # Bumper sensor pin
-  work1_pin = 14 # Work motor control pin 1 (for relay, use 17)
+  work1_pin = 14 # Work motor control pin 1 (for positive relay, use 17)
   work2_pin = 18 # Work motor control pin 2
   work_ctrl_positive = false # Work motor control polarity (for relay, set to true)
 

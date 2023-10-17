@@ -1,6 +1,7 @@
 //! Provides a loop for autonomous driving.
 
 use crate::module::com::{BleBroadCast, Neighbor, ParentMsg};
+use crate::module::device::speaker;
 use crate::module::pilot::{Modes, RoktrackState};
 use crate::module::util::init::RoktrackProperty;
 use crate::module::vision::{RoktrackVision, VisionMgmtCommand};
@@ -59,7 +60,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
     vision.run(channel_detections_tx, channel_vision_mgmt_rx);
 
     // Initialize the state.
-    let mut state = RoktrackState::new();
+    let mut state = RoktrackState::new(property.conf.clone());
     // Initialize drive handler.
     let mut handler: Box<dyn PilotHandler> = mode_to_handler(
         Modes::from_string(property.conf.drive.mode.as_str()),
@@ -118,7 +119,7 @@ pub fn run(property: RoktrackProperty) -> JoinHandle<()> {
             let _ = post_process(&mut state, &mut device);
 
             // Broadcast my state to neighbors.
-            let payload = state.dump(&neighbors.clone());
+            let payload = state.dump(&neighbors.clone(), property.conf.clone(), &device);
             com.inner
                 .clone()
                 .lock()
@@ -137,7 +138,7 @@ fn command_to_handler(
     conf: Config,
 ) -> Option<Box<dyn PilotHandler>> {
     // Handle commands from the parent (smartphone app).
-    if neighbor.identifier == 0 && neighbor.dest == 255 {
+    if neighbor.identifier == 0 && (neighbor.dest == 255 || neighbor.dest == state.identifier) {
         match ParentMsg::from_u8(neighbor.msg) {
             // Switch the state if states differ between new state and old state.
             ParentMsg::Off => {
@@ -185,7 +186,14 @@ fn command_to_handler(
                 }
             }
             ParentMsg::Climb => None,
-            ParentMsg::Around => None,
+            ParentMsg::Around => {
+                if !state.state && state.mode != Modes::Around {
+                    state.mode = Modes::Around;
+                    None
+                } else {
+                    None
+                }
+            }
             ParentMsg::MonitorPerson => {
                 if !state.state && state.mode != Modes::MonitorPerson {
                     device.speak("receive_monitorpersonmode");
@@ -221,6 +229,41 @@ fn command_to_handler(
                 } else {
                     None
                 }
+            }
+            // Miscellaneous
+            ParentMsg::Call => {
+                if !state.state && state.mode != Modes::Unknown {
+                    // Dance
+                    device.inner.clone().lock().unwrap().left(200);
+                    thread::sleep(Duration::from_millis(200));
+                    device.inner.clone().lock().unwrap().stop();
+                    // Speech
+                    device.speak("yes");
+                    // Dance
+                    device.inner.clone().lock().unwrap().right(200);
+                    thread::sleep(Duration::from_millis(200));
+                    device.inner.clone().lock().unwrap().stop();
+
+                    state.mode = Modes::Unknown;
+                }
+                None
+            }
+            ParentMsg::Chorus => {
+                if !state.state && state.mode != Modes::Unknown {
+                    // Dance
+                    device.inner.clone().lock().unwrap().left(200);
+                    thread::sleep(Duration::from_millis(200));
+                    device.inner.clone().lock().unwrap().stop();
+                    // Song
+                    speaker::play("asset/audio/music/01-Monk-Turner-Fascinoma-Its-Your-Birthday(chosic.com).mp3");
+                    // Dance
+                    device.inner.clone().lock().unwrap().right(200);
+                    thread::sleep(Duration::from_millis(200));
+                    device.inner.clone().lock().unwrap().stop();
+
+                    state.mode = Modes::Unknown;
+                }
+                None
             }
             // Manual Control
             ParentMsg::Stop => None,

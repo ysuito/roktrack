@@ -12,10 +12,10 @@ pub mod round_trip; // Round-trip between person and marker module
 use super::{
     com::Neighbor, // Import the Neighbor type from the com module
     device::Roktrack,
-    util::init::RoktrackProperty,
+    util::{conf::Config, init::RoktrackProperty},
     vision::{VisionMgmtCommand, VisualInfo},
 };
-use rand::{self, seq::SliceRandom, Rng}; // Import random number generation
+use rand::{self, seq::SliceRandom}; // Import random number generation
 use std::collections::HashMap;
 use std::sync::mpsc::Sender; // Import HashMap for storage
 
@@ -104,17 +104,13 @@ pub struct RoktrackState {
     pub identifier: u8,     // My identifier
     pub img_width: u32,     // Width of the image to process
     pub img_height: u32,    // Height of the image to process
-}
-
-impl Default for RoktrackState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub diff: f32,          // Normalized marker gap to center.
+    pub marker_height: u32, // Normalized marker height.
 }
 
 impl RoktrackState {
     /// Create a new RoktrackState with default values.
-    pub fn new() -> Self {
+    pub fn new(conf: Config) -> Self {
         Self {
             state: true,
             mode: Modes::Fill,
@@ -131,9 +127,11 @@ impl RoktrackState {
             // 0: commander
             // 251-254: preserved
             // 255: broadcast
-            identifier: rand::thread_rng().gen_range(1..250),
+            identifier: conf.system.identifier,
             img_width: 320,
             img_height: 240,
+            diff: 0.0,
+            marker_height: 0,
         }
     }
 
@@ -150,6 +148,8 @@ impl RoktrackState {
         self.msg = 255;
         self.img_width = 320;
         self.img_height = 240;
+        self.diff = 0.0;
+        self.marker_height = 0;
     }
 
     /// Invert the phase (CCW -> CW) and reset counters.
@@ -159,7 +159,12 @@ impl RoktrackState {
     }
 
     /// Dump the state for broadcasting.
-    pub fn dump(&mut self, neighbors: &HashMap<u8, Neighbor>) -> Vec<u8> {
+    pub fn dump(
+        &mut self,
+        neighbors: &HashMap<u8, Neighbor>,
+        conf: Config,
+        device: &Roktrack,
+    ) -> Vec<u8> {
         let used_identifiers: Vec<u8> = neighbors.keys().cloned().collect();
         if used_identifiers.contains(&self.identifier) {
             let pool: Vec<u8> = (1..250).filter(|x| !used_identifiers.contains(x)).collect();
@@ -168,6 +173,13 @@ impl RoktrackState {
         // Construct the first byte
         let state_and_rest = format!("{:b}{:b}", self.state as u8, (self.rest * 100.0) as u8);
         let state_and_rest: u8 = isize::from_str_radix(&state_and_rest, 2).unwrap_or(0) as u8;
+        // u8 variables
+        let left_power_u8 =
+            (device.inner.clone().lock().unwrap().drive_motor_left.power * 100.0) as u8;
+        let right_power_u8 =
+            (device.inner.clone().lock().unwrap().drive_motor_left.power * 100.0) as u8;
+        let diff_u8 = ((self.diff + 1.0) * 127.0) as u8;
+        let marker_height_u8 = (self.marker_height as f32 / self.img_height as f32 * 100.0) as u8;
         // Construct the payload
         let mut val = vec![
             state_and_rest,          // State and rest
@@ -175,6 +187,11 @@ impl RoktrackState {
             Modes::to_u8(self.mode), // Mode as int
             self.msg,                // Message
             255,                     // Destination
+            conf.system.appearance,  // Appearance
+            left_power_u8,           // Left Motor Power
+            right_power_u8,          // Right Motor Power
+            diff_u8,                 // Normalized f32 diff to u8. (-1 ~ 1) -> (0 ~ 255)
+            marker_height_u8,        // u8 marker height.
         ];
         // Padding
         val.resize(23, 0);
@@ -199,7 +216,9 @@ mod tests {
 
     #[test]
     fn roktrack_state_test() {
-        let mut state = RoktrackState::new();
+        let property = crate::module::util::init::resource::init();
+        let device = Roktrack::new(property.conf.clone());
+        let mut state = RoktrackState::new(property.conf.clone());
         // reset test
         state.rest = 0.9;
         assert_eq!(state.rest, 0.9);
@@ -212,7 +231,7 @@ mod tests {
         // dump test
         let neighbors = HashMap::new();
         assert_eq!(
-            state.dump(&neighbors),
+            state.dump(&neighbors, property.conf, &device),
             [100, 0, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
         )
     }

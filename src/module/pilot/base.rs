@@ -529,11 +529,16 @@ pub fn reach_marker(
 fn get_diff(
     marker_center_x: f32,
     marker_height: u32,
+    rest: f32,
     cam_height: u32,
     cam_width: u32,
     phase: Phase,
 ) -> f32 {
-    let mut offset = if marker_height as f32 > cam_height as f32 * 0.5 {
+    let mut offset = 0.0;
+    // When approaching the pylon closest,
+    // shift slightly to the side of the pylon
+    // so that you can get as close as possible.
+    offset += if marker_height as f32 > cam_height as f32 * 0.5 {
         cam_width as f32 / 2.0 * 0.4
     } else {
         0.0
@@ -543,7 +548,7 @@ fn get_diff(
         Phase::CW => -offset,
     };
     let diff = (cam_width as f32 / 2.0 - marker_center_x + offset) / cam_width as f32;
-    log::debug!("Calculated Diff: {}", diff);
+    log::debug!("Calculated Diff: {} Rest:{}", diff, rest);
     diff
 }
 
@@ -575,10 +580,12 @@ pub fn proceed(
     let diff = get_diff(
         marker.xc,
         marker.h,
+        state.rest,
         state.img_height,
         state.img_width,
         state.phase.clone(),
     );
+    state.diff = diff; // Save normalized marker gap to center.
 
     // Calculate a value based on the difference for motor adjustments
     let val = (0.1 * diff).abs() as f64;
@@ -773,7 +780,8 @@ mod tests {
         ) = mpsc::channel();
 
         // Initialize a test state
-        let mut state = RoktrackState::new();
+        let property = crate::module::util::init::resource::init();
+        let mut state = RoktrackState::new(property.conf);
         state.ex_height = 100;
 
         // Test initial state values

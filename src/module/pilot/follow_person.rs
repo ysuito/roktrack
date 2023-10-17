@@ -36,7 +36,7 @@ impl PilotHandler for FollowPerson {
         device: &mut Roktrack,
         visual_info: &mut VisualInfo,
         tx: Sender<VisionMgmtCommand>,
-        _property: RoktrackProperty,
+        property: RoktrackProperty,
     ) {
         log::debug!("Start FollowPerson Handle");
         // Assess and handle system safety
@@ -71,11 +71,15 @@ impl PilotHandler for FollowPerson {
 
         // Sort markers based on the current phase
         let detections = sort::big(&mut detections);
-        let detections =
-            RoktrackClasses::filter(&mut detections.clone(), (RoktrackClasses::PERSON).to_u32());
+        let detections = RoktrackClasses::filter(
+            &mut detections.clone(),
+            (RoktrackClasses::PERSON).to_u32(),
+            property.conf.detectthreshold.person,
+        );
 
         // Get the first detected marker or a default one
         let marker = detections.first().cloned().unwrap_or_default();
+        state.marker_height = marker.h;
         log::info!("Marker Selected: {:?}", marker);
 
         let action = assess_situation(state, &marker);
