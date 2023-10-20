@@ -125,12 +125,18 @@ pub mod onnx {
             &self,
             impath: &str,
             session_type: SessionType,
+            record_path: &str,
         ) -> Result<Vec<super::Detection>, Box<dyn std::error::Error>> {
             let sz = session_type.get_imgsz();
             // Load image and resize to model's shape, converting to RGB format
             let img: ImageBuffer<Rgb<u8>, Vec<u8>> = image::open(Path::new(impath))?
                 .resize_exact(sz, sz, FilterType::Nearest)
                 .to_rgb8();
+
+            // As a Recoder
+            if !record_path.is_empty() {
+                let _ = img.save(Path::new(record_path));
+            }
 
             let array = ndarray::CowArray::from(
                 ndarray::Array::from_shape_fn((1, 3, sz as usize, sz as usize), |(_, c, j, i)| {
@@ -267,8 +273,11 @@ pub mod onnx {
                     // );
                     // let _ = crop.save(fname.clone());
 
-                    let ocr_dets =
-                        self.infer(property.path.img.crop.clone().as_str(), SessionType::Ocr)?;
+                    let ocr_dets = self.infer(
+                        property.path.img.crop.clone().as_str(),
+                        SessionType::Ocr,
+                        "",
+                    )?;
 
                     // Collect detected digits
                     let mut digits = vec![];
@@ -663,9 +672,9 @@ mod tests {
     #[test]
     fn roktrack_detect_object_test() {
         let detector = onnx::YoloV8::new();
-        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
+        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320, "");
         assert!(dets.unwrap().len() == 2);
-        let dets = detector.infer("asset/img/person.jpg", onnx::SessionType::Sz320);
+        let dets = detector.infer("asset/img/person.jpg", onnx::SessionType::Sz320, "");
         assert!(dets.unwrap().len() == 1);
     }
 
@@ -673,10 +682,10 @@ mod tests {
     fn animal_detect_object_test() {
         let mut detector = onnx::YoloV8::new();
         detector.sessions = onnx::YoloV8::build_animal_sessions().unwrap();
-        let dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320);
+        let dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320, "");
         let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::BEAR.to_u32(), 0.0);
         assert!(dets.len() == 1);
-        let dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320);
+        let dets = detector.infer("asset/img/monkey.jpg", onnx::SessionType::Sz320, "");
         let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::MONKEY.to_u32(), 0.0);
         assert!(dets.len() == 2);
     }
@@ -684,11 +693,11 @@ mod tests {
     #[test]
     fn pylon_detect_resolution_test() {
         let detector = onnx::YoloV8::new();
-        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320);
+        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320, "");
         let dets =
             RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32(), 0.0);
         assert_eq!(dets.len(), 2);
-        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640);
+        let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz640, "");
         let dets =
             RoktrackClasses::filter(&mut dets.unwrap(), RoktrackClasses::PYLON.to_u32(), 0.0);
         assert_eq!(dets.len(), 2);

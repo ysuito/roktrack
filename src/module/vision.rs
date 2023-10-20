@@ -131,7 +131,14 @@ impl RoktrackVision {
                         .lock()
                         .unwrap()
                         .det
-                        .infer(&local_property.path.img.last, session_type);
+                        .infer(
+                            &local_property.path.img.last,
+                            session_type,
+                            &format!(
+                                "{}/{}.jpg",
+                                local_property.path.dir.img, visual_info.shooting_end_time,
+                            ),
+                        );
                     let mut dets = dets.unwrap();
                     log::debug!("Vision Detected: {:?}", dets.clone(),);
                     // Handle ocr
