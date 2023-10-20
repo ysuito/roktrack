@@ -1,7 +1,16 @@
 /target
 /Cargo.lock
+
+# Dev
 run.sh
-memo.md
+build.sh
+/roktrack
+/libonnxruntime.so.1.15.1
+/stop
+/work
+
+
+# Release
 /release
 release.sh
 release.zip

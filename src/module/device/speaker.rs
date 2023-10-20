@@ -1,8 +1,8 @@
 //! Audio Handler.
 
 // use soloud::*;
+use async_process::Stdio;
 use std::path::Path;
-use std::process::Command;
 use std::thread::{self};
 
 /// Play an audio file.
@@ -19,13 +19,21 @@ use std::thread::{self};
 /// use roktracklib::module::device::speaker::play;
 /// play("asset/audio/ja/start_mowing.mp3");
 /// ```
-pub fn play(file: &str) {
+pub fn play(file: &str, sync: bool) {
     let path = Path::new(file);
-    Command::new("mpg123")
-        .arg("-q")
-        .arg(path.as_os_str())
-        .output()
-        .expect("failed to execute mpg123");
+    if sync {
+        std::process::Command::new("mpg123")
+            .arg("-q")
+            .arg(path.as_os_str())
+            .output()
+            .expect("failed to execute mpg123");
+    } else {
+        let _ = async_process::Command::new("mpg123")
+            .arg("-q")
+            .arg(path.as_os_str())
+            .stdout(Stdio::piped())
+            .spawn();
+    }
 }
 
 /// Play an asset audio file.
@@ -43,7 +51,12 @@ pub fn play(file: &str) {
 /// ```
 pub fn speak(name: &str) {
     let path = Path::new("./asset/audio/ja/").join(format!("{name}.mp3"));
-    thread::spawn(move || play(path.to_str().unwrap()));
+    thread::spawn(move || play(path.to_str().unwrap(), false));
+}
+
+pub fn speak_sync(name: &str) {
+    let path = Path::new("./asset/audio/ja/").join(format!("{name}.mp3"));
+    thread::spawn(move || play(path.to_str().unwrap(), true));
 }
 
 /// Logger functions for speaking audio messages based on log levels.
@@ -145,8 +158,8 @@ mod tests {
 
     #[test]
     fn audio_test() {
-        play("asset/audio/ja/start_mowing.mp3");
-        play("start_mowing");
+        play("asset/audio/ja/start_mowing.mp3", true);
+        play("start_mowing", true);
         assert!(logger::debug("start_mowing", "DEBUG"));
         assert!(!logger::debug("start_mowing", "INFO"));
         assert!(logger::info("start_mowing", "INFO"));

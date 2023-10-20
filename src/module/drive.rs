@@ -233,31 +233,56 @@ fn command_to_handler(
             // Miscellaneous
             ParentMsg::Call => {
                 if !state.state && state.mode != Modes::Unknown {
-                    // Dance
-                    device.inner.clone().lock().unwrap().left(200);
+                    // Bow
+                    device.inner.clone().lock().unwrap().forward(200);
                     thread::sleep(Duration::from_millis(200));
                     device.inner.clone().lock().unwrap().stop();
                     // Speech
-                    device.speak("yes");
-                    // Dance
-                    device.inner.clone().lock().unwrap().right(200);
+                    speaker::speak_sync("yes");
+                    // Bow
+                    device.inner.clone().lock().unwrap().backward(200);
                     thread::sleep(Duration::from_millis(200));
                     device.inner.clone().lock().unwrap().stop();
-
+                    // Set mode
                     state.mode = Modes::Unknown;
                 }
                 None
             }
             ParentMsg::Chorus => {
                 if !state.state && state.mode != Modes::Unknown {
-                    // Dance
-                    device.inner.clone().lock().unwrap().left(200);
+                    // Bow
+                    device.inner.clone().lock().unwrap().forward(200);
                     thread::sleep(Duration::from_millis(200));
                     device.inner.clone().lock().unwrap().stop();
                     // Song
-                    speaker::play("asset/audio/music/01-Monk-Turner-Fascinoma-Its-Your-Birthday(chosic.com).mp3");
+                    speaker::play("asset/audio/music/01-Monk-Turner-Fascinoma-Its-Your-Birthday(chosic.com).mp3", false);
                     // Dance
-                    device.inner.clone().lock().unwrap().right(200);
+                    // Left
+                    device.inner.clone().lock().unwrap().left(100);
+                    thread::sleep(Duration::from_millis(100));
+                    device.inner.clone().lock().unwrap().stop();
+                    // wait
+                    thread::sleep(Duration::from_millis(800));
+                    for _ in 0..15 {
+                        // right
+                        device.inner.clone().lock().unwrap().right(200);
+                        thread::sleep(Duration::from_millis(200));
+                        device.inner.clone().lock().unwrap().stop();
+                        // wait
+                        thread::sleep(Duration::from_millis(800));
+                        // left
+                        device.inner.clone().lock().unwrap().left(200);
+                        thread::sleep(Duration::from_millis(200));
+                        device.inner.clone().lock().unwrap().stop();
+                        // wait
+                        thread::sleep(Duration::from_millis(800));
+                    }
+                    // Left
+                    device.inner.clone().lock().unwrap().right(100);
+                    thread::sleep(Duration::from_millis(100));
+                    device.inner.clone().lock().unwrap().stop();
+                    // Bow
+                    device.inner.clone().lock().unwrap().backward(200);
                     thread::sleep(Duration::from_millis(200));
                     device.inner.clone().lock().unwrap().stop();
 
