@@ -11,14 +11,14 @@ high_temp:
   ja: 内部が高温状態です。一時停止します。
   en: High temperature inside. Pause.
 new_cone_found:
-  ja: 新たな目標を補足しました。前進します。
-  en: New goals supplemented. Moving forward.
+  ja: 新たな目標を補足しました。
+  en: New goals supplemented.
 close_to_cone:
   ja: 目標に到達しました。次の目標を探索します。
   en: Target reached. Explore the next target.
 upscale:
-  ja: 目標を見失いました。アップスケールします。
-  en: Lost the target. Upscale.
+  ja: アップスケールします。
+  en: Upscale.
 downscale:
   ja: ダウンスケールします。
   en: Downscale.
@@ -87,43 +87,43 @@ receive_roundtripmode:
   en: Changed to round-trip mode.
 switch_ocr_mode:
   ja: OCRモードで動作します。ターゲットは
-  en: 
+  en: It operates in OCR mode. Target is
 target0:
-  ja: 「0」、もう一度言います、「0」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「0」、もう一度言います、「0」。
+  en: It operates in OCR mode. Target is "0", say again, "0".
 target1:
-  ja: 「1」、もう一度言います、「1」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「1」、もう一度言います、「1」。
+  en: It operates in OCR mode. Target is "1", say again, "1".
 target2:
-  ja: 「2」、もう一度言います、「2」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「2」、もう一度言います、「2」。
+  en: It operates in OCR mode. Target is "2", say again, "2".
 target3:
-  ja: 「3」、もう一度言います、「3」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「3」、もう一度言います、「3」。
+  en: It operates in OCR mode. Target is "3", say again, "3".
 target4:
-  ja: 「4」、もう一度言います、「4」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「4」、もう一度言います、「4」。
+  en: It operates in OCR mode. Target is "4", say again, "4".
 target5:
-  ja: 「5」、もう一度言います、「5」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「5」、もう一度言います、「5」。
+  en: It operates in OCR mode. Target is "5", say again, "5".
 target6:
-  ja: 「6」、もう一度言います、「6」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「6」、もう一度言います、「6」。
+  en: It operates in OCR mode. Target is "6", say again, "6".
 target7:
-  ja: 「7」、もう一度言います、「7」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「7」、もう一度言います、「7」。
+  en: It operates in OCR mode. Target is "7", say again, "7".
 target8:
-  ja: 「8」、もう一度言います、「8」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「8」、もう一度言います、「8」。
+  en: It operates in OCR mode. Target is "8", say again, "8".
 target9:
-  ja: 「9」、もう一度言います、「9」。
-  en: 
+  ja: OCRモードで動作します。ターゲットは「9」、もう一度言います、「9」。
+  en: It operates in OCR mode. Target is "9", say again, "9".
 update_start:
   ja: ソフトウェアの更新を始めます。
-  en: 
+  en: Start updating the software.
 update_done:
   ja: ソフトウェアの更新が終わりました。
-  en: 
-yes:
-  ja: はーい！
-  en: 
+  en: Software update is finished.
+"yes":
+  ja: はい！
+  en: Yes, sir!
