@@ -69,7 +69,12 @@ pub mod onnx {
         ///
         pub fn new() -> Self {
             Self {
-                sessions: Self::build_pylon_sessions().expect("Can't initialize pylon sessions"),
+                sessions: Sessions::Pylon {
+                    sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL)
+                        .expect("Can't initialize PYLON_320_MODEL"),
+                    sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL)
+                        .expect("Can't initialize PYLON_640_MODEL"),
+                },
                 session_type: SessionType::Sz320,
             }
         }
@@ -93,31 +98,34 @@ pub mod onnx {
         }
         /// Build Pylon Session Bundle
         ///
-        pub fn build_pylon_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+        pub fn build_pylon_sessions(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             let sessions = Sessions::Pylon {
                 sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL)?,
                 sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL)?,
             };
-            Ok(sessions)
+            self.sessions = sessions;
+            Ok(())
         }
         /// Build Pylon OCR Session Bundle
         ///
-        pub fn build_pylon_ocr_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+        pub fn build_pylon_ocr_sessions(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             let sessions = Sessions::PylonOcr {
                 sz320: Self::get_session("pylon_sz320", define::path::PYLON_320_MODEL)?,
                 sz640: Self::get_session("pylon_sz640", define::path::PYLON_640_MODEL)?,
                 ocr: Self::get_session("pylon_ocr", define::path::DIGIT_OCR_96_MODEL)?,
             };
-            Ok(sessions)
+            self.sessions = sessions;
+            Ok(())
         }
         /// Build Animal Session Bundle
         ///
-        pub fn build_animal_sessions() -> Result<Sessions, Box<dyn std::error::Error>> {
+        pub fn build_animal_sessions(&mut self) -> Result<(), Box<dyn std::error::Error>> {
             let sessions = Sessions::Animal {
                 sz320: Self::get_session("animal_sz320", define::path::ANIMAL_320_MODEL)?,
                 sz640: Self::get_session("animal_sz640", define::path::ANIMAL_640_MODEL)?,
             };
-            Ok(sessions)
+            self.sessions = sessions;
+            Ok(())
         }
         /// Infer
         ///
@@ -308,7 +316,7 @@ pub mod onnx {
                 .map(|(index, value)| (index, *value))
                 .reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
                 .unwrap();
-            if prob < 0.5 {
+            if prob < 0.1 {
                 continue;
             }
             let cls = class_id as u32;
@@ -672,6 +680,13 @@ mod tests {
     #[test]
     fn roktrack_detect_object_test() {
         let detector = onnx::YoloV8::new();
+        // let dets = detector.infer(
+        //     "asset/img/1698188707646_1.jpg",
+        //     onnx::SessionType::Sz640,
+        //     "tmp.jpg",
+        // );
+        // dbg!(dets.unwrap());
+        // assert!(false);
         let dets = detector.infer("asset/img/pylon_10m.jpg", onnx::SessionType::Sz320, "");
         assert!(dets.unwrap().len() == 2);
         let dets = detector.infer("asset/img/person.jpg", onnx::SessionType::Sz320, "");
@@ -681,7 +696,7 @@ mod tests {
     #[test]
     fn animal_detect_object_test() {
         let mut detector = onnx::YoloV8::new();
-        detector.sessions = onnx::YoloV8::build_animal_sessions().unwrap();
+        let _ = detector.build_animal_sessions();
         let dets = detector.infer("asset/img/bear.jpg", onnx::SessionType::Sz320, "");
         let dets = AnimalClasses::filter(&mut dets.unwrap(), AnimalClasses::BEAR.to_u32(), 0.0);
         assert!(dets.len() == 1);

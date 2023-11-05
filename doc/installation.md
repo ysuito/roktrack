@@ -42,7 +42,7 @@ sudo systemctl disable bluetooth
 
 # Install App
 ```bash
-sudo apt install -y libv4l-dev libssl-dev mpg123
+sudo apt install -y libv4l-dev libssl-dev mpg123 bluez-hcidump
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ysuito/roktrack/master/installation.sh | sh
 ```
 

@@ -698,44 +698,53 @@ pub fn select_marker(
     state: &mut RoktrackState,
     detections: Vec<Detection>,
     device: &mut Roktrack,
+    tx: Sender<VisionMgmtCommand>,
 ) -> Detection {
     if property.conf.vision.ocr {
-        if state.marker_id.is_none() && !detections.is_empty() {
-            let detection = detections.first().unwrap();
-            if !detection.ids.is_empty() {
-                device.inner.lock().unwrap().stop();
-                thread::sleep(time::Duration::from_millis(5000));
-                state.marker_id = detection.ids.first().copied();
-                device.speak("switch_ocr_mode");
-                thread::sleep(time::Duration::from_millis(2000));
-                device.speak(format!("target{}", state.marker_id.unwrap()).as_str());
-                thread::sleep(time::Duration::from_millis(1000));
-                log::debug!(
-                    "First Marker Id Found. new_id: {}",
-                    state.marker_id.unwrap()
-                );
-                detection.clone()
-            } else {
-                log::debug!("First Marker Id Not Found.");
-                detection.clone()
-            }
+        if detections.is_empty() {
+            determine_pass_through(state.clone(), detections)
         } else {
-            // If there is a marker_id, select the matching one as marker
-            let detections_with_id: Vec<Detection> = detections
-                .iter()
-                .cloned()
-                .filter(|det| det.ids.contains(&state.marker_id.unwrap()))
-                .collect();
-            log::debug!(
-                "Detection With Id. detection_with_id: {:?}",
-                detections_with_id.clone()
-            );
-            determine_pass_through(state.clone(), detections_with_id)
+            let detection = detections.first().unwrap();
+            if state.marker_id.is_some() {
+                let detections_with_id: Vec<Detection> = detections
+                    .iter()
+                    .cloned()
+                    .filter(|det| det.ids.contains(&state.marker_id.unwrap()))
+                    .collect();
+                log::debug!(
+                    "Detection With Id. detection_with_id: {:?}",
+                    detections_with_id.clone()
+                );
+                determine_pass_through(state.clone(), detections_with_id)
+            } else {
+                if state.rest == 1.0 {
+                    if !detection.ids.is_empty() {
+                        device.inner.lock().unwrap().stop();
+                        thread::sleep(time::Duration::from_millis(5000));
+                        state.marker_id = detection.ids.first().copied();
+                        device.speak("switch_ocr_mode");
+                        thread::sleep(time::Duration::from_millis(2000));
+                        device.speak(format!("target{}", state.marker_id.unwrap()).as_str());
+                        thread::sleep(time::Duration::from_millis(1000));
+                        log::debug!(
+                            "First Marker Id Found. new_id: {}",
+                            state.marker_id.unwrap()
+                        );
+                        detection.clone()
+                    } else {
+                        log::debug!("First Marker Id Not Found.");
+                        determine_pass_through(state.clone(), detections)
+                    }
+                } else {
+                    tx.send(VisionMgmtCommand::SwitchSessionPylon).unwrap();
+                    determine_pass_through(state.clone(), detections.clone())
+                }
+            }
         }
     } else {
         log::debug!("Select Detection Without Ocr");
         // Get the first detected marker or a default one
-        detections.first().cloned().unwrap_or_default()
+        determine_pass_through(state.clone(), detections)
     }
 }
 

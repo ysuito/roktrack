@@ -110,7 +110,7 @@ impl PilotHandler for Fill {
         // Skip during turning(Images taken while turning are blurred.)
         if device.inner.clone().lock().unwrap().is_turning()
             && visual_info.shooting_start_time
-                < device.inner.clone().lock().unwrap().target_time + 300
+                > device.inner.clone().lock().unwrap().target_time + 300
         {
             log::debug!("Waiting for Static Image.");
             return; // wait for next image
@@ -130,7 +130,7 @@ impl PilotHandler for Fill {
         };
 
         // Get the first detected marker or a default one
-        let marker = select_marker(property, state, detections, device);
+        let marker = select_marker(property, state, detections, device, tx.clone());
         state.marker_height = marker.h;
         log::info!("Marker Selected: {:?}", marker);
 

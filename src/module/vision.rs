@@ -80,20 +80,17 @@ impl RoktrackVision {
                 } // If the command is On, do nothing and proceed
                 Ok(VisionMgmtCommand::SwitchSessionPylon) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylon Received");
-                    local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_pylon_sessions().unwrap();
+                    let _ = local_self.lock().unwrap().det.build_pylon_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionPylonOcr) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionPylonOcr Received");
                     // If the command is SwitchSessionPylonOcr, lock the inner field and update the detector sessions with the pylon OCR sessions
-                    local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_pylon_ocr_sessions().unwrap();
+                    let _ = local_self.lock().unwrap().det.build_pylon_ocr_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSessionAnimal) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSessionAnimal Received");
                     // If the command is SwitchSessionAnimal, lock the inner field and update the detector sessions with the animal sessions
-                    local_self.lock().unwrap().det.sessions =
-                        detector::onnx::YoloV8::build_animal_sessions().unwrap();
+                    let _ = local_self.lock().unwrap().det.build_animal_sessions();
                 }
                 Ok(VisionMgmtCommand::SwitchSz320) => {
                     log::debug!("Vision VisionMgmtCommand::SwitchSz320 Received");
